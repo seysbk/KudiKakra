@@ -4,19 +4,27 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.kudikakra.BuildConfig
+import com.kudikakra.data.local.database.AppDatabase
+import com.kudikakra.data.repository.UserPreferencesRepository
 import com.kudikakra.notification.detection.DetectionResult
 import com.kudikakra.notification.detection.FinancialNotificationDetector
 import com.kudikakra.notification.detection.FinancialSource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class KudiKakraNotificationListenerService : NotificationListenerService() {
 
-    /**
-     * Detector instance.  Defaults to all known sources enabled.
-     * In a future phase this will be configured from user preferences.
-     */
-    private val detector = FinancialNotificationDetector(
-        enabledSources = FinancialSource.entries.toSet()
-    )
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private lateinit var preferencesRepository: UserPreferencesRepository
+
+    override fun onCreate() {
+        super.onCreate()
+        preferencesRepository = UserPreferencesRepository(
+            AppDatabase.getInstance(applicationContext).userPreferencesDao()
+        )
+    }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -46,11 +54,32 @@ class KudiKakraNotificationListenerService : NotificationListenerService() {
             timestampEpochMillis = sbn.postTime
         )
 
-        // Always forward to the inspector store (memory-only, capped at 50).
-        NotificationInspectorStore.add(event)
+        // Read user enabled sources from preferences and run detection.
+        serviceScope.launch {
+            val prefs = preferencesRepository.getPreferencesSync()
+            val enabledSources = prefs?.getEnabledFinancialSources() ?: FinancialSource.entries.toSet()
+            val detector = FinancialNotificationDetector(enabledSources = enabledSources)
 
-        // Run Phase 6 financial detection.
-        val detection = detector.detect(event)
+            val detection = detector.detect(event)
+
+            // Forward event and detection result to inspector store (memory-only, capped at 50).
+            NotificationInspectorStore.add(event, detection)
+
+            if (BuildConfig.DEBUG) {
+                when (detection) {
+                    is DetectionResult.Financial ->
+                        Log.d(
+                            TAG,
+                            "Detection -> FINANCIAL " +
+                                "confidence=${detection.confidence} " +
+                                "source=${detection.matchedSource?.displayName ?: "unknown"} " +
+                                "reason=${detection.reason}"
+                        )
+                    is DetectionResult.NotFinancial ->
+                        Log.d(TAG, "Detection -> NOT_FINANCIAL reason=${detection.reason}")
+                }
+            }
+        }
 
         if (BuildConfig.DEBUG) {
             Log.d(
@@ -59,18 +88,6 @@ class KudiKakraNotificationListenerService : NotificationListenerService() {
                     "title=${event.title}, text=${event.text}, " +
                     "timestamp=${event.timestampEpochMillis}"
             )
-            when (detection) {
-                is DetectionResult.Financial ->
-                    Log.d(
-                        TAG,
-                        "Detection -> FINANCIAL " +
-                            "confidence=${detection.confidence} " +
-                            "source=${detection.matchedSource?.displayName ?: "unknown"} " +
-                            "reason=${detection.reason}"
-                    )
-                is DetectionResult.NotFinancial ->
-                    Log.d(TAG, "Detection -> NOT_FINANCIAL reason=${detection.reason}")
-            }
         }
 
         // NOTE: Acting on financial detections (saving to Room, updating the

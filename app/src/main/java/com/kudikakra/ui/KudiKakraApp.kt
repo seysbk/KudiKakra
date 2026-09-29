@@ -46,8 +46,12 @@ import com.kudikakra.data.local.entity.DailyBudgetEntity
 import com.kudikakra.data.local.entity.UserPreferencesEntity
 import com.kudikakra.domain.budget.BudgetEngine
 import com.kudikakra.domain.budget.BudgetStatus
+import com.kudikakra.notification.InspectedNotification
 import com.kudikakra.notification.NotificationEvent
 import com.kudikakra.notification.NotificationInspectorStore
+import com.kudikakra.notification.detection.DetectionResult
+import com.kudikakra.notification.detection.FinancialNotificationDetector
+import com.kudikakra.notification.detection.FinancialSource
 import com.kudikakra.ui.components.AddTransactionDialog
 import com.kudikakra.ui.viewmodel.SpendingPlanViewModel
 import com.kudikakra.ui.viewmodel.TransactionViewModel
@@ -506,6 +510,36 @@ private fun SettingsScreen(viewModel: UserPreferencesViewModel?) {
         item {
             Card {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Monitored Financial Sources", fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Select which financial providers KudiKakra should monitor.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val enabledSources = preferences.getEnabledFinancialSources()
+                    FinancialSource.entries.forEach { source ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(source.displayName, modifier = Modifier.weight(1f))
+                            Switch(
+                                checked = source in enabledSources,
+                                onCheckedChange = { isChecked ->
+                                    viewModel?.toggleSource(source, isChecked)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text("Privacy", fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(6.dp))
                     Text("KudiKakra is local-first. Financial data should stay on your device and raw notifications should not be stored permanently.")
@@ -606,13 +640,28 @@ private fun DeveloperToolCard(
 
 @Composable
 private fun NotificationInspectorScreen() {
-    val events by NotificationInspectorStore.events.collectAsState()
+    val isServiceConnected by NotificationInspectorStore.isServiceConnected.collectAsState()
+    val inspectedItems by NotificationInspectorStore.inspectedNotifications.collectAsState()
+    val detector = remember { FinancialNotificationDetector() }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Listener Service Status", fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        if (isServiceConnected) "Service Connected" else "Service Disconnected",
+                        color = if (isServiceConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
         item {
             Text(
                 "Events are kept in memory only and are cleared when the app process ends.",
@@ -624,25 +673,39 @@ private fun NotificationInspectorScreen() {
                 OutlinedButton(onClick = { NotificationInspectorStore.clear() }) {
                     Text("Clear events")
                 }
+                Button(onClick = {
+                    val sampleEvent = NotificationEvent(
+                        packageName = "com.mtn.momo",
+                        title = "MTN MoMo",
+                        text = "You have paid GH₵25.00 to Accra Groceries. Transaction ID: ${System.currentTimeMillis().toString().takeLast(6)}",
+                        timestampEpochMillis = System.currentTimeMillis()
+                    )
+                    val detection = detector.detect(sampleEvent)
+                    NotificationInspectorStore.add(sampleEvent, detection)
+                }) {
+                    Text("Simulate MoMo Notification")
+                }
             }
         }
-        if (events.isEmpty()) {
+        if (inspectedItems.isEmpty()) {
             item {
                 Card {
                     Text(
-                        "No notifications received yet. Enable notification access, then post a test notification.",
+                        "No notifications received yet. Enable notification access, or click 'Simulate MoMo Notification' to test.",
                         modifier = Modifier.padding(16.dp)
                     )
                 }
             }
         } else {
-            items(events) { event -> NotificationEventCard(event) }
+            items(inspectedItems) { item -> InspectedNotificationCard(item) }
         }
     }
 }
 
 @Composable
-private fun NotificationEventCard(event: NotificationEvent) {
+private fun InspectedNotificationCard(item: InspectedNotification) {
+    val event = item.event
+    val detection = item.detectionResult
     val timestamp = Instant.ofEpochMilli(event.timestampEpochMillis)
         .atZone(ZoneId.systemDefault())
         .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.getDefault()))
@@ -653,6 +716,28 @@ private fun NotificationEventCard(event: NotificationEvent) {
             Text("Title: ${event.title.ifBlank { "(none)" }}")
             Text("Text: ${event.text.ifBlank { "(none)" }}")
             Text("Received: $timestamp", style = MaterialTheme.typography.bodySmall)
+
+            detection?.let { result ->
+                Spacer(modifier = Modifier.height(4.dp))
+                when (result) {
+                    is DetectionResult.Financial -> {
+                        Text(
+                            "Detection: FINANCIAL (${result.confidence}) - ${result.matchedSource?.displayName ?: "Unknown Provider"}",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text("Reason: ${result.reason}", style = MaterialTheme.typography.bodySmall)
+                    }
+                    is DetectionResult.NotFinancial -> {
+                        Text(
+                            "Detection: NOT FINANCIAL",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                        Text("Reason: ${result.reason}", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
         }
     }
 }

@@ -32,6 +32,21 @@ class UserPreferencesViewModel(application: Application) : AndroidViewModel(appl
         copy(notificationThresholdPercent = percent.coerceIn(1, 100))
     }
 
+    fun toggleSource(source: com.kudikakra.notification.detection.FinancialSource, enabled: Boolean) = save {
+        val currentSources = getEnabledFinancialSources().toMutableSet()
+        if (enabled) {
+            currentSources.add(source)
+        } else {
+            currentSources.remove(source)
+        }
+        val encoded = if (currentSources.isEmpty()) {
+            UserPreferencesEntity.NONE_SELECTED
+        } else {
+            currentSources.joinToString(",") { it.name }
+        }
+        copy(selectedSources = encoded)
+    }
+
     private fun save(update: UserPreferencesEntity.() -> UserPreferencesEntity) {
         viewModelScope.launch {
             repository.save(preferences.value.update().copy(updatedAtEpochMillis = System.currentTimeMillis()))
