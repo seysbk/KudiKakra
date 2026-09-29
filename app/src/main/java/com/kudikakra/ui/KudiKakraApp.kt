@@ -1,5 +1,8 @@
 package com.kudikakra.ui
 
+import android.content.Intent
+import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,19 +13,24 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,8 +39,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.kudikakra.data.local.entity.TransactionEntity
+import com.kudikakra.data.local.entity.DailyBudgetEntity
+import com.kudikakra.data.local.entity.UserPreferencesEntity
+import com.kudikakra.domain.budget.BudgetEngine
+import com.kudikakra.domain.budget.BudgetStatus
+import com.kudikakra.notification.NotificationEvent
+import com.kudikakra.notification.NotificationInspectorStore
+import com.kudikakra.ui.components.AddTransactionDialog
+import com.kudikakra.ui.viewmodel.SpendingPlanViewModel
+import com.kudikakra.ui.viewmodel.TransactionViewModel
+import com.kudikakra.ui.viewmodel.UserPreferencesViewModel
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.LocalDate
+import java.time.Instant
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -41,11 +65,16 @@ private enum class AppScreen(val title: String, val shortLabel: String) {
     TRANSACTIONS("Transactions", "History"),
     PLAN("Spending plan", "Plan"),
     SETTINGS("Settings", "Settings"),
-    DEVELOPER("Developer tools", "Tools")
+    DEVELOPER("Developer tools", "Tools"),
+    NOTIFICATION_INSPECTOR("Notification inspector", "Inspect")
 }
 
 @Composable
-fun KudiKakraApp() {
+fun KudiKakraApp(
+    transactionViewModel: TransactionViewModel? = null,
+    spendingPlanViewModel: SpendingPlanViewModel? = null,
+    userPreferencesViewModel: UserPreferencesViewModel? = null
+) {
     var currentScreen by remember { mutableStateOf(AppScreen.DASHBOARD) }
 
     Scaffold(
@@ -71,14 +100,21 @@ fun KudiKakraApp() {
         ) {
             when (currentScreen) {
                 AppScreen.DASHBOARD -> DashboardScreen(
+                    viewModel = transactionViewModel,
+                    spendingPlanViewModel = spendingPlanViewModel,
                     onOpenPlan = { currentScreen = AppScreen.PLAN },
                     onOpenTransactions = { currentScreen = AppScreen.TRANSACTIONS }
                 )
 
-                AppScreen.TRANSACTIONS -> TransactionsScreen()
-                AppScreen.PLAN -> SpendingPlanScreen()
-                AppScreen.SETTINGS -> SettingsScreen()
-                AppScreen.DEVELOPER -> DeveloperScreen()
+                AppScreen.TRANSACTIONS -> TransactionsScreen(transactionViewModel)
+                AppScreen.PLAN -> SpendingPlanScreen(spendingPlanViewModel)
+                AppScreen.SETTINGS -> SettingsScreen(userPreferencesViewModel)
+                AppScreen.DEVELOPER -> DeveloperScreen(
+                    onOpenNotificationInspector = {
+                        currentScreen = AppScreen.NOTIFICATION_INSPECTOR
+                    }
+                )
+                AppScreen.NOTIFICATION_INSPECTOR -> NotificationInspectorScreen()
             }
         }
     }
@@ -100,9 +136,21 @@ private fun AppHeader(title: String) {
 
 @Composable
 private fun DashboardScreen(
+    viewModel: TransactionViewModel?,
+    spendingPlanViewModel: SpendingPlanViewModel?,
     onOpenPlan: () -> Unit,
     onOpenTransactions: () -> Unit
 ) {
+    val budgetSummary by if (spendingPlanViewModel != null) {
+        spendingPlanViewModel.todaySummary.collectAsState()
+    } else {
+        remember { mutableStateOf(BudgetEngine.calculate(null, 0L)) }
+    }
+    val transactionCount by if (viewModel != null) {
+        viewModel.transactions.collectAsState()
+    } else {
+        remember { mutableStateOf(emptyList<TransactionEntity>()) }
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
@@ -118,16 +166,21 @@ private fun DashboardScreen(
         }
         item {
             SpendingSummaryCard(
-                spent = "GH₵0.00",
-                plan = "GH₵60.00",
-                remaining = "GH₵60.00",
-                progress = 0f
+                spent = formatMoney(budgetSummary.spentMinorUnits),
+                plan = budgetSummary.planMinorUnits?.let(::formatMoney) ?: "No plan",
+                remaining = budgetSummary.remainingMinorUnits?.let(::formatMoney) ?: "—",
+                progress = (budgetSummary.percentageUsed / 100f).coerceIn(0f, 1f),
+                status = budgetStatusLabel(budgetSummary.status)
             )
         }
         item {
             Card {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("No spending recorded yet", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (transactionCount.isEmpty()) "No spending recorded yet"
+                        else "${transactionCount.size} transaction(s) recorded",
+                        fontWeight = FontWeight.SemiBold
+                    )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         "Add transactions manually first. Automatic notification detection will be added after the local flow is reliable.",
@@ -159,7 +212,8 @@ private fun SpendingSummaryCard(
     spent: String,
     plan: String,
     remaining: String,
-    progress: Float
+    progress: Float,
+    status: String
 ) {
     Card {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -174,37 +228,143 @@ private fun SpendingSummaryCard(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text("$remaining remaining", fontWeight = FontWeight.SemiBold)
+            Text(status, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
 
+private fun budgetStatusLabel(status: BudgetStatus): String = when (status) {
+    BudgetStatus.NO_PLAN -> "Set a plan to track today's limit."
+    BudgetStatus.ON_TRACK -> "You are on track with today's plan."
+    BudgetStatus.APPROACHING_LIMIT -> "You are approaching today's plan."
+    BudgetStatus.EXCEEDED -> "Today's plan has been exceeded."
+}
+
 @Composable
-private fun TransactionsScreen() {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Text(
-                "Transactions will be stored locally on this device.",
-                style = MaterialTheme.typography.bodyLarge
-            )
-        }
-        item {
-            Card {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("No transactions yet", fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text("Manual expense entry will be added next, before notification parsing.")
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(onClick = { }, enabled = false) { Text("Add transaction (next phase)") }
-                }
+private fun TransactionsScreen(viewModel: TransactionViewModel?) {
+    val transactions by viewModel?.transactions?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList()) }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var editingTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
+    var transactionToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
+
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showAddDialog = true }) {
+                Text("+")
             }
         }
-        item { TransactionRuleLegend() }
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Text(
+                    "Transactions will be stored locally on this device.",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+            if (transactions.isEmpty()) {
+                item {
+                    Card {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("No transactions yet", fontWeight = FontWeight.SemiBold)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text("Click the + button to add a manual transaction.")
+                        }
+                    }
+                }
+            } else {
+                items(transactions) { t ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                val dateStr = Instant.ofEpochMilli(t.timestampEpochMillis)
+                                    .atZone(ZoneId.systemDefault())
+                                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm", Locale.getDefault()))
+                                Text(
+                                    text = "${t.type.name} - ${t.source}",
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = t.merchant ?: dateStr,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                            Text(
+                                text = formatMoney(t.amountMinorUnits),
+                                fontWeight = FontWeight.Bold,
+                                color = if (t.type.name == "EXPENSE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            )
+                            Row {
+                                IconButton(onClick = { editingTransaction = t }) {
+                                    Text("E")
+                                }
+                                IconButton(onClick = { transactionToDelete = t }) {
+                                    Text("D")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            item { TransactionRuleLegend() }
+        }
+    }
+
+    if (showAddDialog || editingTransaction != null) {
+        AddTransactionDialog(
+            onDismiss = {
+                showAddDialog = false
+                editingTransaction = null
+            },
+            onSave = { entity ->
+                if (editingTransaction != null) {
+                    viewModel?.update(entity)
+                } else {
+                    viewModel?.insert(entity)
+                }
+                showAddDialog = false
+                editingTransaction = null
+            },
+            transactionToEdit = editingTransaction
+        )
+    }
+
+    transactionToDelete?.let { transaction ->
+        AlertDialog(
+            onDismissRequest = { transactionToDelete = null },
+            title = { Text("Delete transaction?") },
+            text = { Text("This will permanently remove the local transaction record.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel?.delete(transaction)
+                        transactionToDelete = null
+                    }
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { transactionToDelete = null }) { Text("Cancel") }
+            }
+        )
     }
 }
+
+private fun formatMoney(amountMinorUnits: Long): String =
+    "GH₵${String.format(Locale.US, "%,.2f", amountMinorUnits / 100.0)}"
+
+private fun parseMinorUnits(value: String): Long? = runCatching {
+    BigDecimal(value.trim())
+        .movePointRight(2)
+        .setScale(0, RoundingMode.HALF_UP)
+        .longValueExact()
+}.getOrNull()
 
 @Composable
 private fun TransactionRuleLegend() {
@@ -222,47 +382,105 @@ private fun TransactionRuleLegend() {
 }
 
 @Composable
-private fun SpendingPlanScreen() {
+private fun SpendingPlanScreen(viewModel: SpendingPlanViewModel?) {
+    val budgets by if (viewModel != null) {
+        viewModel.budgets.collectAsState()
+    } else {
+        remember { mutableStateOf(emptyList<DailyBudgetEntity>()) }
+    }
     val days = listOf(
-        "Monday" to "GH₵40",
-        "Tuesday" to "GH₵60",
-        "Wednesday" to "GH₵40",
-        "Thursday" to "GH₵60",
-        "Friday" to "GH₵80",
-        "Saturday" to "GH₵120",
-        "Sunday" to "GH₵60"
+        java.util.Calendar.MONDAY to "Monday",
+        java.util.Calendar.TUESDAY to "Tuesday",
+        java.util.Calendar.WEDNESDAY to "Wednesday",
+        java.util.Calendar.THURSDAY to "Thursday",
+        java.util.Calendar.FRIDAY to "Friday",
+        java.util.Calendar.SATURDAY to "Saturday",
+        java.util.Calendar.SUNDAY to "Sunday"
     )
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
-            Text("Set a separate spending plan for each day. Plans are temporary until Room storage is added.")
-            Spacer(modifier = Modifier.height(8.dp))
+            Text("Set a separate spending plan for each day. Changes are saved locally on this device.")
         }
-        items(days) { (day, amount) ->
-            Card {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(day, fontWeight = FontWeight.SemiBold)
-                    TextButton(onClick = { }, enabled = false) { Text(amount) }
+        items(days) { (dayOfWeek, dayName) ->
+            val budget = budgets.firstOrNull { it.dayOfWeek == dayOfWeek }
+            BudgetEditorRow(
+                dayOfWeek = dayOfWeek,
+                dayName = dayName,
+                initialAmountMinorUnits = budget?.amountMinorUnits ?: 0L,
+                onSave = { amountMinorUnits ->
+                    viewModel?.save(
+                        DailyBudgetEntity(
+                            dayOfWeek = dayOfWeek,
+                            amountMinorUnits = amountMinorUnits,
+                            updatedAtEpochMillis = System.currentTimeMillis()
+                        )
+                    )
                 }
-            }
+            )
         }
     }
 }
 
 @Composable
-private fun SettingsScreen() {
-    var trackingEnabled by remember { mutableStateOf(false) }
-    var spendingNotifications by remember { mutableStateOf(true) }
+private fun BudgetEditorRow(
+    dayOfWeek: Int,
+    dayName: String,
+    initialAmountMinorUnits: Long,
+    onSave: (Long) -> Unit
+) {
+    var amount by remember(dayOfWeek, initialAmountMinorUnits) {
+        mutableStateOf(
+            if (initialAmountMinorUnits == 0L) ""
+            else BigDecimal.valueOf(initialAmountMinorUnits, 2).toPlainString()
+        )
+    }
+    var error by remember(dayOfWeek) { mutableStateOf<String?>(null) }
+
+    Card {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(dayName, fontWeight = FontWeight.SemiBold)
+            OutlinedTextField(
+                value = amount,
+                onValueChange = {
+                    amount = it
+                    error = null
+                },
+                label = { Text("Daily plan (GH₵)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            Button(
+                onClick = {
+                    val parsed = parseMinorUnits(amount)
+                    if (parsed == null || parsed <= 0) {
+                        error = "Enter a plan greater than zero."
+                    } else {
+                        onSave(parsed)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Save $dayName plan") }
+        }
+    }
+}
+
+@Composable
+private fun SettingsScreen(viewModel: UserPreferencesViewModel?) {
+    val context = LocalContext.current
+    val notificationAccessEnabled = NotificationManagerCompat
+        .getEnabledListenerPackages(context)
+        .contains(context.packageName)
+    val preferences by if (viewModel != null) {
+        viewModel.preferences.collectAsState()
+    } else {
+        remember { mutableStateOf(UserPreferencesEntity()) }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -273,16 +491,16 @@ private fun SettingsScreen() {
             SettingSwitch(
                 title = "Automatic tracking",
                 description = "Read supported financial notifications on this device.",
-                checked = trackingEnabled,
-                onCheckedChange = { trackingEnabled = it }
+                checked = preferences.automaticTrackingEnabled,
+                onCheckedChange = { viewModel?.setAutomaticTrackingEnabled(it) }
             )
         }
         item {
             SettingSwitch(
                 title = "Spending notifications",
                 description = "Notify you when you approach or exceed today's plan.",
-                checked = spendingNotifications,
-                onCheckedChange = { spendingNotifications = it }
+                checked = preferences.spendingNotificationsEnabled,
+                onCheckedChange = { viewModel?.setSpendingNotificationsEnabled(it) }
             )
         }
         item {
@@ -292,7 +510,19 @@ private fun SettingsScreen() {
                     Spacer(modifier = Modifier.height(6.dp))
                     Text("KudiKakra is local-first. Financial data should stay on your device and raw notifications should not be stored permanently.")
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(onClick = { }, enabled = false) { Text("Notification access status (next phase)") }
+                    Text(
+                        if (notificationAccessEnabled) {
+                            "Notification access is enabled."
+                        } else {
+                            "Notification access is not enabled."
+                        },
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                        }
+                    ) { Text("Manage notification access") }
                     OutlinedButton(onClick = { }, enabled = false) { Text("Delete local data (next phase)") }
                 }
             }
@@ -325,7 +555,7 @@ private fun SettingSwitch(
 }
 
 @Composable
-private fun DeveloperScreen() {
+private fun DeveloperScreen(onOpenNotificationInspector: () -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
@@ -335,7 +565,12 @@ private fun DeveloperScreen() {
             Text("Use these tools during development. Do not expose them as part of the final user experience.")
         }
         item {
-            DeveloperToolCard("Notification inspector", "View package, title, text, and timestamp without saving raw notifications.")
+            DeveloperToolCard(
+                title = "Notification inspector",
+                description = "View package, title, text, and timestamp without saving raw notifications.",
+                enabled = true,
+                onClick = onOpenNotificationInspector
+            )
         }
         item {
             DeveloperToolCard("Parser playground", "Test representative provider messages before using real notifications.")
@@ -350,14 +585,74 @@ private fun DeveloperScreen() {
 }
 
 @Composable
-private fun DeveloperToolCard(title: String, description: String) {
+private fun DeveloperToolCard(
+    title: String,
+    description: String,
+    enabled: Boolean = false,
+    onClick: () -> Unit = {}
+) {
     Card {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(title, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(6.dp))
             Text(description, style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(onClick = { }, enabled = false) { Text("Open tool (next phase)") }
+            OutlinedButton(onClick = onClick, enabled = enabled) {
+                Text(if (enabled) "Open tool" else "Open tool (next phase)")
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotificationInspectorScreen() {
+    val events by NotificationInspectorStore.events.collectAsState()
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Text(
+                "Events are kept in memory only and are cleared when the app process ends.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { NotificationInspectorStore.clear() }) {
+                    Text("Clear events")
+                }
+            }
+        }
+        if (events.isEmpty()) {
+            item {
+                Card {
+                    Text(
+                        "No notifications received yet. Enable notification access, then post a test notification.",
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+        } else {
+            items(events) { event -> NotificationEventCard(event) }
+        }
+    }
+}
+
+@Composable
+private fun NotificationEventCard(event: NotificationEvent) {
+    val timestamp = Instant.ofEpochMilli(event.timestampEpochMillis)
+        .atZone(ZoneId.systemDefault())
+        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.getDefault()))
+
+    Card {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(event.packageName, fontWeight = FontWeight.SemiBold)
+            Text("Title: ${event.title.ifBlank { "(none)" }}")
+            Text("Text: ${event.text.ifBlank { "(none)" }}")
+            Text("Received: $timestamp", style = MaterialTheme.typography.bodySmall)
         }
     }
 }

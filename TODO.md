@@ -70,17 +70,17 @@ PHASE 1 — Basic UI
 
 PHASE 2 — Room / SQLite
 
-- [ ] Add Room
-- [ ] Create AppDatabase
-- [ ] Create Transaction entity
-- [ ] Create DailyBudget entity
-- [ ] Create UserPreferences entity if needed
-- [ ] Create TransactionDao
-- [ ] Create DailyBudgetDao
-- [ ] Create repositories
-- [ ] Create ViewModels
-- [ ] Verify database writes
-- [ ] Verify database reads
+- [x] Add Room
+- [x] Create AppDatabase
+- [x] Create Transaction entity
+- [x] Create DailyBudget entity
+- [x] Create UserPreferences entity
+- [x] Create TransactionDao
+- [x] Create DailyBudgetDao
+- [x] Create repositories
+- [x] Create ViewModels
+- [~] Verify database writes
+- [~] Verify database reads
 - [ ] Verify app survives restart with data intact
 
 ---
@@ -89,17 +89,17 @@ PHASE 3 — Manual Transactions
 
 Build manual entry before automatic detection.
 
-- [ ] Add manual expense entry
-- [ ] Add amount
-- [ ] Add merchant
-- [ ] Add source
-- [ ] Add date/time
-- [ ] Add transaction type
-- [ ] Save to Room
-- [ ] Display transaction history
-- [ ] Allow deleting a transaction
-- [ ] Allow editing a transaction
-- [ ] Test database thoroughly
+- [x] Add manual expense entry
+- [x] Add amount
+- [x] Add merchant
+- [x] Add source
+- [x] Add date/time
+- [x] Add transaction type
+- [x] Save to Room
+- [x] Display transaction history
+- [x] Allow deleting a transaction
+- [x] Allow editing a transaction
+- [~] Test database thoroughly
 
 This gives the project a working foundation before notification parsing is introduced.
 
@@ -107,20 +107,20 @@ This gives the project a working foundation before notification parsing is intro
 
 PHASE 4 — Spending Plan
 
-- [ ] Allow user to configure Monday budget
-- [ ] Allow Tuesday budget
-- [ ] Allow Wednesday budget
-- [ ] Allow Thursday budget
-- [ ] Allow Friday budget
-- [ ] Allow Saturday budget
-- [ ] Allow Sunday budget
-- [ ] Save plans to Room
-- [ ] Display today's plan
-- [ ] Calculate today's expenditure
-- [ ] Calculate remaining amount
-- [ ] Calculate percentage used
-- [ ] Detect approaching limit
-- [ ] Detect exceeded limit
+- [x] Allow user to configure Monday budget
+- [x] Allow Tuesday budget
+- [x] Allow Wednesday budget
+- [x] Allow Thursday budget
+- [x] Allow Friday budget
+- [x] Allow Saturday budget
+- [x] Allow Sunday budget
+- [x] Save plans to Room
+- [x] Display today's plan
+- [x] Calculate today's expenditure
+- [x] Calculate remaining amount
+- [x] Calculate percentage used
+- [x] Detect approaching limit
+- [x] Detect exceeded limit
 
 Example:
 
@@ -134,16 +134,16 @@ PHASE 5 — Notification Listener
 
 Make-or-break technical experiment
 
-- [ ] Implement NotificationListenerService
-- [ ] Request/guide user through notification access
+- [x] Implement NotificationListenerService
+- [x] Request/guide user through notification access
 - [ ] Verify service starts
 - [ ] Verify service receives notifications
-- [ ] Log package name
-- [ ] Log notification title
-- [ ] Log notification text
-- [ ] Log timestamp
-- [ ] Create Notification Inspector screen
-- [ ] Do NOT store all raw notifications permanently
+- [x] Log package name
+- [x] Log notification title
+- [x] Log notification text
+- [x] Log timestamp
+- [x] Create Notification Inspector screen
+- [x] Do NOT store all raw notifications permanently
 
 Real-device testing
 

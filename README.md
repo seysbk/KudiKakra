@@ -11,6 +11,13 @@ The project is in the early MVP stage.
 Implemented so far:
 
 - Basic Jetpack Compose UI.
+- Room database foundation for local persistence.
+- Transaction and daily-budget repositories and ViewModels.
+- Manual transaction entry with validation.
+- Transaction history with editing and deletion.
+- Room-backed user preferences and weekday spending plans.
+- Daily budget summaries with remaining, percentage, approaching, and exceeded states.
+- Notification listener service and in-memory notification inspector for device testing.
 - Dashboard screen.
 - Transactions screen.
 - Daily spending-plan screen.
@@ -21,8 +28,6 @@ Implemented so far:
 
 Not implemented yet:
 
-- Room database and persistent storage.
-- Manual transaction entry.
 - Notification listener service.
 - Financial notification parsers.
 - Automatic transaction classification.
