@@ -334,29 +334,29 @@ Do not add charts yet.
 
 PHASE 15 — Settings
 
-- [ ] Select financial sources
-- [ ] Enable/disable automatic tracking
-- [ ] Configure notification threshold
-- [ ] Enable/disable spending notifications
-- [ ] Provide notification-access status
-- [ ] Provide privacy explanation
-- [ ] Add data deletion option
-- [ ] Add developer/test mode only where appropriate
+- [x] Select financial sources
+- [x] Enable/disable automatic tracking
+- [x] Configure notification threshold
+- [x] Enable/disable spending notifications
+- [x] Provide notification-access status
+- [x] Provide privacy explanation
+- [x] Add data deletion option
+- [x] Add developer/test mode only where appropriate
 
 ---
 
 PHASE 16 — Privacy
 
-- [ ] Confirm no financial data leaves device
-- [ ] Confirm no backend exists
-- [ ] Confirm no cloud database exists
-- [ ] Confirm no AI API is used
-- [ ] Minimize raw notification storage
-- [ ] Review Android permissions
-- [ ] Review exported components
-- [ ] Review logs for accidental financial data exposure
-- [ ] Remove sensitive debug logging from release build
-- [ ] Test app without internet
+- [x] Confirm no financial data leaves device
+- [x] Confirm no backend exists
+- [x] Confirm no cloud database exists
+- [x] Confirm no AI API is used
+- [x] Minimize raw notification storage
+- [x] Review Android permissions
+- [x] Review exported components
+- [x] Review logs for accidental financial data exposure
+- [x] Remove sensitive debug logging from release build
+- [x] Test app without internet
 
 ---
 

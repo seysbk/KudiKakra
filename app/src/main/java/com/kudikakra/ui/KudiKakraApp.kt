@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.IconButton
@@ -25,6 +26,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -37,12 +39,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.kudikakra.data.local.entity.TransactionEntity
 import com.kudikakra.data.local.entity.DailyBudgetEntity
+import com.kudikakra.data.local.entity.TransactionEntity
 import com.kudikakra.data.local.entity.UserPreferencesEntity
 import com.kudikakra.domain.budget.BudgetEngine
 import com.kudikakra.domain.budget.BudgetStatus
@@ -61,20 +63,21 @@ import com.kudikakra.ui.viewmodel.TransactionViewModel
 import com.kudikakra.ui.viewmodel.UserPreferencesViewModel
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.time.LocalDate
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
-private enum class AppScreen(val title: String, val shortLabel: String) {
+private enum class AppScreen(val title: String, val shortLabel: String, val isDeveloperTool: Boolean = false) {
     DASHBOARD("Today", "Home"),
     TRANSACTIONS("Transactions", "History"),
     PLAN("Spending plan", "Plan"),
     SETTINGS("Settings", "Settings"),
-    DEVELOPER("Developer tools", "Tools"),
-    NOTIFICATION_INSPECTOR("Notification inspector", "Inspect"),
-    PARSER_PLAYGROUND("Parser playground", "Playground")
+    DEVELOPER("Developer tools", "Tools", isDeveloperTool = true),
+    NOTIFICATION_INSPECTOR("Notification inspector", "Inspect", isDeveloperTool = true),
+    PARSER_PLAYGROUND("Parser playground", "Playground", isDeveloperTool = true)
 }
 
 @Composable
@@ -83,15 +86,45 @@ fun KudiKakraApp(
     spendingPlanViewModel: SpendingPlanViewModel? = null,
     userPreferencesViewModel: UserPreferencesViewModel? = null
 ) {
+    val preferences by if (userPreferencesViewModel != null) {
+        userPreferencesViewModel.preferences.collectAsState()
+    } else {
+        remember { mutableStateOf(UserPreferencesEntity()) }
+    }
+
     var currentScreen by remember { mutableStateOf(AppScreen.DASHBOARD) }
+
+    val visibleNavScreens = remember(preferences.developerModeEnabled) {
+        if (preferences.developerModeEnabled) {
+            listOf(
+                AppScreen.DASHBOARD,
+                AppScreen.TRANSACTIONS,
+                AppScreen.PLAN,
+                AppScreen.SETTINGS,
+                AppScreen.DEVELOPER
+            )
+        } else {
+            listOf(
+                AppScreen.DASHBOARD,
+                AppScreen.TRANSACTIONS,
+                AppScreen.PLAN,
+                AppScreen.SETTINGS
+            )
+        }
+    }
+
+    if (!preferences.developerModeEnabled && currentScreen.isDeveloperTool) {
+        currentScreen = AppScreen.DASHBOARD
+    }
 
     Scaffold(
         topBar = { AppHeader(title = currentScreen.title) },
         bottomBar = {
             NavigationBar {
-                AppScreen.entries.forEach { screen ->
+                visibleNavScreens.forEach { screen ->
                     NavigationBarItem(
-                        selected = currentScreen == screen,
+                        selected = currentScreen == screen ||
+                            (screen == AppScreen.DEVELOPER && (currentScreen == AppScreen.NOTIFICATION_INSPECTOR || currentScreen == AppScreen.PARSER_PLAYGROUND)),
                         onClick = { currentScreen = screen },
                         icon = { Text(screen.shortLabel.take(1)) },
                         label = { Text(screen.shortLabel) }
@@ -220,7 +253,7 @@ private fun DashboardScreen(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        "Add transactions manually first. Automatic notification detection will be added after the local flow is reliable.",
+                        "KudiKakra tracks your daily spending locally. Expenses automatically update your daily spending plan.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -580,6 +613,8 @@ private fun SettingsScreen(viewModel: UserPreferencesViewModel?) {
         remember { mutableStateOf(UserPreferencesEntity()) }
     }
 
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
@@ -593,6 +628,7 @@ private fun SettingsScreen(viewModel: UserPreferencesViewModel?) {
                 onCheckedChange = { viewModel?.setAutomaticTrackingEnabled(it) }
             )
         }
+
         item {
             SettingSwitch(
                 title = "Spending notifications",
@@ -601,6 +637,39 @@ private fun SettingsScreen(viewModel: UserPreferencesViewModel?) {
                 onCheckedChange = { viewModel?.setSpendingNotificationsEnabled(it) }
             )
         }
+
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Alert Threshold", fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Notify when daily spending reaches ${preferences.notificationThresholdPercent}% of today's plan.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Slider(
+                            value = preferences.notificationThresholdPercent.toFloat(),
+                            onValueChange = { viewModel?.setNotificationThresholdPercent(it.roundToInt()) },
+                            valueRange = 10f..100f,
+                            steps = 17,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "${preferences.notificationThresholdPercent}%",
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 12.dp)
+                        )
+                    }
+                }
+            }
+        }
+
         item {
             Card {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -631,30 +700,99 @@ private fun SettingsScreen(viewModel: UserPreferencesViewModel?) {
                 }
             }
         }
+
         item {
             Card {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Privacy", fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text("KudiKakra is local-first. Financial data should stay on your device and raw notifications should not be stored permanently.")
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Notification Listener Permission", fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         if (notificationAccessEnabled) {
-                            "Notification access is enabled."
+                            "Status: Granted"
                         } else {
-                            "Notification access is not enabled."
+                            "Status: Not Granted — Notification tracking requires permission."
                         },
+                        fontWeight = FontWeight.Bold,
+                        color = if (notificationAccessEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
                     OutlinedButton(
                         onClick = {
                             context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                         }
                     ) { Text("Manage notification access") }
-                    OutlinedButton(onClick = { }, enabled = false) { Text("Delete local data (next phase)") }
                 }
             }
         }
+
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Privacy & Data Guarantees", fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("• Local-First: All financial data is processed and stored strictly on this device.", style = MaterialTheme.typography.bodyMedium)
+                    Text("• No Cloud / No Server: KudiKakra operates without backend servers, cloud databases, or accounts.", style = MaterialTheme.typography.bodyMedium)
+                    Text("• No AI APIs: Notification data is never sent to remote AI services.", style = MaterialTheme.typography.bodyMedium)
+                    Text("• Zero Raw Storage: Raw notification text is parsed transiently in memory and never stored to disk.", style = MaterialTheme.typography.bodyMedium)
+                    Text("• No Internet Permission: The app requests zero network access permissions.", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Data Management", fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Permanently wipe all transaction history, spending plans, and local settings.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { showDeleteConfirmDialog = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Delete all local data")
+                    }
+                }
+            }
+        }
+
+        item {
+            SettingSwitch(
+                title = "Developer mode",
+                description = "Enable developer tools for testing parsers and inspecting notifications.",
+                checked = preferences.developerModeEnabled,
+                onCheckedChange = { viewModel?.setDeveloperModeEnabled(it) }
+            )
+        }
+    }
+
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text("Delete all local data?") },
+            text = { Text("This will permanently remove all transactions, spending plans, and user preferences stored on this device. This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel?.deleteAllLocalData()
+                        showDeleteConfirmDialog = false
+                    }
+                ) {
+                    Text("Delete Everything", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -693,7 +831,7 @@ private fun DeveloperScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Text("Use these tools during development. Do not expose them as part of the final user experience.")
+            Text("Use these tools during development. Keep disabled in normal use.")
         }
         item {
             DeveloperToolCard(
