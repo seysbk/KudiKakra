@@ -198,17 +198,17 @@ Recommended starting point:
 
 MTNParser
 
-- [ ] Collect representative notification examples
-- [ ] Identify expense messages
-- [ ] Identify received messages
-- [ ] Identify sent/transfer messages
-- [ ] Identify withdrawal messages
-- [ ] Identify amount formats
-- [ ] Identify merchant/reference formats
-- [ ] Implement parser
-- [ ] Add unit tests
-- [ ] Test parser with copied notification examples
-- [ ] Test parser against real device notifications
+- [x] Collect representative notification examples
+- [x] Identify expense messages
+- [x] Identify received messages
+- [x] Identify sent/transfer messages
+- [x] Identify withdrawal messages
+- [x] Identify amount formats
+- [x] Identify merchant/reference formats
+- [x] Implement parser
+- [x] Add unit tests
+- [x] Test parser with copied notification examples
+- [~] Test parser against real device notifications
 
 Do not add five providers before the first parser works reliably.
 

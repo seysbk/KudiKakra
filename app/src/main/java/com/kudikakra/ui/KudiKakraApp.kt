@@ -46,6 +46,8 @@ import com.kudikakra.data.local.entity.DailyBudgetEntity
 import com.kudikakra.data.local.entity.UserPreferencesEntity
 import com.kudikakra.domain.budget.BudgetEngine
 import com.kudikakra.domain.budget.BudgetStatus
+import com.kudikakra.domain.parser.ParseResult
+import com.kudikakra.domain.parser.ParserRegistry
 import com.kudikakra.notification.InspectedNotification
 import com.kudikakra.notification.NotificationEvent
 import com.kudikakra.notification.NotificationInspectorStore
@@ -70,7 +72,8 @@ private enum class AppScreen(val title: String, val shortLabel: String) {
     PLAN("Spending plan", "Plan"),
     SETTINGS("Settings", "Settings"),
     DEVELOPER("Developer tools", "Tools"),
-    NOTIFICATION_INSPECTOR("Notification inspector", "Inspect")
+    NOTIFICATION_INSPECTOR("Notification inspector", "Inspect"),
+    PARSER_PLAYGROUND("Parser playground", "Playground")
 }
 
 @Composable
@@ -116,9 +119,13 @@ fun KudiKakraApp(
                 AppScreen.DEVELOPER -> DeveloperScreen(
                     onOpenNotificationInspector = {
                         currentScreen = AppScreen.NOTIFICATION_INSPECTOR
+                    },
+                    onOpenParserPlayground = {
+                        currentScreen = AppScreen.PARSER_PLAYGROUND
                     }
                 )
                 AppScreen.NOTIFICATION_INSPECTOR -> NotificationInspectorScreen()
+                AppScreen.PARSER_PLAYGROUND -> ParserPlaygroundScreen()
             }
         }
     }
@@ -589,7 +596,10 @@ private fun SettingSwitch(
 }
 
 @Composable
-private fun DeveloperScreen(onOpenNotificationInspector: () -> Unit) {
+private fun DeveloperScreen(
+    onOpenNotificationInspector: () -> Unit,
+    onOpenParserPlayground: () -> Unit
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
@@ -607,7 +617,12 @@ private fun DeveloperScreen(onOpenNotificationInspector: () -> Unit) {
             )
         }
         item {
-            DeveloperToolCard("Parser playground", "Test representative provider messages before using real notifications.")
+            DeveloperToolCard(
+                title = "Parser playground",
+                description = "Test representative provider messages before using real notifications.",
+                enabled = true,
+                onClick = onOpenParserPlayground
+            )
         }
         item {
             DeveloperToolCard("Test budget", "Try below-plan, at-plan, and over-plan spending states.")
@@ -698,6 +713,153 @@ private fun NotificationInspectorScreen() {
             }
         } else {
             items(inspectedItems) { item -> InspectedNotificationCard(item) }
+        }
+    }
+}
+
+@Composable
+private fun ParserPlaygroundScreen() {
+    var packageName by remember { mutableStateOf("com.mtn.momo") }
+    var title by remember { mutableStateOf("MobileMoney") }
+    var text by remember {
+        mutableStateOf("Payment made for GH₵ 25.00 to Accra Groceries. Transaction ID: 10293847561. Fee charged: GH₵ 0.00.")
+    }
+    var parseResult by remember { mutableStateOf<ParseResult?>(null) }
+    val registry = remember { ParserRegistry() }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Text(
+                "Test financial notification messages against active provider parsers.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Preset Samples", fontWeight = FontWeight.SemiBold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                packageName = "com.mtn.momo"
+                                title = "MobileMoney"
+                                text = "Payment made for GH₵ 25.00 to Accra Groceries. Transaction ID: 10293847561. Fee charged: GH₵ 0.00."
+                            }
+                        ) { Text("Expense") }
+                        OutlinedButton(
+                            onClick = {
+                                packageName = "com.mtn.momo"
+                                title = "MobileMoney"
+                                text = "An amount of GH₵ 200.00 has been received from JOHN DOE. Transaction ID: 12345."
+                            }
+                        ) { Text("Income") }
+                        OutlinedButton(
+                            onClick = {
+                                packageName = "com.mtn.momo"
+                                title = "MobileMoney"
+                                text = "You have transferred GH₵ 100.00 to KOFI MENSAH. Transaction ID: 88776655."
+                            }
+                        ) { Text("Transfer") }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                packageName = "com.mtn.momo"
+                                title = "MobileMoney"
+                                text = "Cash Out of GH₵ 300.00 from Agent AGENT NAME. Transaction ID: 55443322."
+                            }
+                        ) { Text("Withdrawal") }
+                        OutlinedButton(
+                            onClick = {
+                                packageName = "com.mtn.momo"
+                                title = "MobileMoney"
+                                text = "Transaction failed due to insufficient balance."
+                            }
+                        ) { Text("Unknown") }
+                    }
+                }
+            }
+        }
+
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = packageName,
+                        onValueChange = { packageName = it },
+                        label = { Text("Package name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Notification title") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        label = { Text("Notification text") },
+                        minLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Button(
+                        onClick = {
+                            val event = NotificationEvent(
+                                packageName = packageName,
+                                title = title,
+                                text = text,
+                                timestampEpochMillis = System.currentTimeMillis()
+                            )
+                            parseResult = registry.parse(event)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Parse Notification")
+                    }
+                }
+            }
+        }
+
+        parseResult?.let { result ->
+            item {
+                ParsedResultCard(result)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParsedResultCard(result: ParseResult) {
+    Card {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Parse Result", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                "Status: ${if (result.success) "SUCCESS" else "FAILED"}",
+                color = if (result.success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                fontWeight = FontWeight.Bold
+            )
+            Text("Reason: ${result.reason}", style = MaterialTheme.typography.bodySmall)
+
+            result.transaction?.let { txn ->
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Source: ${txn.source}", fontWeight = FontWeight.SemiBold)
+                Text("Amount: ${formatMoney(txn.amountMinorUnits)} (${txn.amountMinorUnits} minor units)")
+                Text("Currency: ${txn.currency}")
+                Text("Direction: ${txn.direction}")
+                Text("Type: ${txn.type}")
+                Text("Merchant/Party: ${txn.merchant ?: "(none)"}")
+                Text("Reference: ${txn.reference ?: "(none)"}")
+                Text("Confidence: ${txn.confidence}")
+                Text("Excluded from spending: ${txn.excludedFromSpending}")
+            }
         }
     }
 }
