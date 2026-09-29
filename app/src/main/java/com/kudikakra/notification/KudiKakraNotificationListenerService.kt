@@ -68,12 +68,21 @@ class KudiKakraNotificationListenerService : NotificationListenerService() {
             NotificationInspectorStore.add(event, detection)
 
             if (detection is DetectionResult.Financial && (prefs?.automaticTrackingEnabled == true)) {
-                val transactionRepo = TransactionRepository(
-                    AppDatabase.getInstance(applicationContext).transactionDao()
-                )
+                val db = AppDatabase.getInstance(applicationContext)
+                val transactionRepo = TransactionRepository(db.transactionDao())
+                val budgetRepo = com.kudikakra.data.repository.DailyBudgetRepository(db.dailyBudgetDao())
                 val processor = TransactionProcessor(transactionRepo, preferencesRepository)
                 val result = processor.process(event)
                 if (BuildConfig.DEBUG) Log.d(TAG, "Processed financial event: $result")
+
+                val notificationManager = SpendingNotificationManager(applicationContext)
+                val notificationHelper = SpendingNotificationHelper(
+                    transactionRepo,
+                    budgetRepo,
+                    preferencesRepository,
+                    notificationManager
+                )
+                notificationHelper.checkAndNotify()
             }
 
             if (BuildConfig.DEBUG) {
@@ -101,9 +110,6 @@ class KudiKakraNotificationListenerService : NotificationListenerService() {
             )
         }
 
-        // NOTE: Acting on financial detections (saving to Room, updating the
-        // budget) is deliberately deferred to Phase 12 once the parser pipeline
-        // (Phases 7–10) is in place.  For now, detection results are logged only.
     }
 
     private fun notificationText(extras: android.os.Bundle): String {

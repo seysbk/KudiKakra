@@ -29,6 +29,18 @@ interface TransactionDao {
     )
     fun observeExpenseTotal(startMillis: Long, endMillis: Long): Flow<Long>
 
+    @Query(
+        """
+        SELECT COALESCE(SUM(amountMinorUnits), 0)
+        FROM transactions
+        WHERE timestampEpochMillis >= :startMillis
+          AND timestampEpochMillis < :endMillis
+          AND type = 'EXPENSE'
+          AND excludedFromSpending = 0
+        """
+    )
+    suspend fun getExpenseTotal(startMillis: Long, endMillis: Long): Long
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(transaction: TransactionEntity): Long
 

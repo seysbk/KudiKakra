@@ -12,6 +12,9 @@ class TransactionRepository(private val dao: TransactionDao) {
     fun observeExpenseTotal(startMillis: Long, endMillis: Long): Flow<Long> =
         dao.observeExpenseTotal(startMillis, endMillis)
 
+    suspend fun getExpenseTotal(startMillis: Long, endMillis: Long): Long =
+        dao.getExpenseTotal(startMillis, endMillis)
+
     suspend fun insert(transaction: TransactionEntity): Long = dao.insert(transaction)
 
     suspend fun update(transaction: TransactionEntity) = dao.update(transaction)
