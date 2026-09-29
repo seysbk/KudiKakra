@@ -295,4 +295,38 @@ class MtnParserTest {
         assertEquals(TransactionType.TRANSFER, txn?.type)
         assertTrue(txn?.excludedFromSpending ?: false)
     }
+
+    @Test
+    fun `parse EXPENSE - fee prefix does not override transaction amount`() {
+        val event = NotificationEvent(
+            packageName = "com.mtn.momo",
+            title = "MoMo",
+            text = "Fee charged: GH₵ 0.50. Payment made for GH₵ 25.00 to Accra Groceries. Transaction ID: 10293847561.",
+            timestampEpochMillis = 1000L
+        )
+
+        val result = parser.parse(event)
+        assertTrue(result.success)
+        val txn = result.transaction
+        assertNotNull(txn)
+        assertEquals(2500L, txn?.amountMinorUnits)
+        assertEquals("Accra Groceries", txn?.merchant)
+    }
+
+    @Test
+    fun `parse EXPENSE - special character merchant names`() {
+        val event = NotificationEvent(
+            packageName = "com.mtn.momo",
+            title = "MoMo",
+            text = "You have paid GH₵ 45.00 to Mama's Kitchen & Grill. Txn ID: 778899.",
+            timestampEpochMillis = 1000L
+        )
+
+        val result = parser.parse(event)
+        assertTrue(result.success)
+        val txn = result.transaction
+        assertNotNull(txn)
+        assertEquals(4500L, txn?.amountMinorUnits)
+        assertEquals("Mama's Kitchen & Grill", txn?.merchant)
+    }
 }
