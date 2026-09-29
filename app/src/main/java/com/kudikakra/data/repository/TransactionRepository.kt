@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.Flow
 class TransactionRepository(private val dao: TransactionDao) {
     fun observeAll(): Flow<List<TransactionEntity>> = dao.observeAll()
 
+    fun observePendingReview(): Flow<List<TransactionEntity>> = dao.observePendingReview()
+
     fun observeExpenseTotal(startMillis: Long, endMillis: Long): Flow<Long> =
         dao.observeExpenseTotal(startMillis, endMillis)
 

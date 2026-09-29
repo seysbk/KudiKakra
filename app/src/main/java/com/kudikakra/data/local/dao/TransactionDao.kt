@@ -14,6 +14,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY timestampEpochMillis DESC")
     fun observeAll(): Flow<List<TransactionEntity>>
 
+    @Query("SELECT * FROM transactions WHERE confidence = 'MEDIUM' OR type = 'UNKNOWN' ORDER BY timestampEpochMillis DESC")
+    fun observePendingReview(): Flow<List<TransactionEntity>>
+
     @Query(
         """
         SELECT COALESCE(SUM(amountMinorUnits), 0)

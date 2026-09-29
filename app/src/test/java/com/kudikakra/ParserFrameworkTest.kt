@@ -27,7 +27,7 @@ class ParserFrameworkTest {
     // ── NormalizedTransaction Tests ───────────────────────────────────────────
 
     @Test
-    fun `EXPENSE with HIGH or MEDIUM confidence is NOT excluded from spending`() {
+    fun `EXPENSE with HIGH confidence is NOT excluded from spending`() {
         val highExpense = NormalizedTransaction(
             amountMinorUnits = 5000L,
             type = TransactionType.EXPENSE,
@@ -37,7 +37,10 @@ class ParserFrameworkTest {
             confidence = ConfidenceLevel.HIGH
         )
         assertFalse(highExpense.excludedFromSpending)
+    }
 
+    @Test
+    fun `EXPENSE with MEDIUM or LOW confidence IS excluded from spending`() {
         val mediumExpense = NormalizedTransaction(
             amountMinorUnits = 5000L,
             type = TransactionType.EXPENSE,
@@ -46,11 +49,8 @@ class ParserFrameworkTest {
             timestampEpochMillis = System.currentTimeMillis(),
             confidence = ConfidenceLevel.MEDIUM
         )
-        assertFalse(mediumExpense.excludedFromSpending)
-    }
+        assertTrue(mediumExpense.excludedFromSpending)
 
-    @Test
-    fun `EXPENSE with LOW confidence IS excluded from spending`() {
         val lowExpense = NormalizedTransaction(
             amountMinorUnits = 5000L,
             type = TransactionType.EXPENSE,

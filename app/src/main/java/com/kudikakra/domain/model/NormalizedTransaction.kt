@@ -15,7 +15,7 @@ data class NormalizedTransaction(
     companion object {
         fun isDefaultExcluded(type: TransactionType, confidence: ConfidenceLevel): Boolean {
             return when (type) {
-                TransactionType.EXPENSE -> confidence == ConfidenceLevel.LOW
+                TransactionType.EXPENSE -> confidence != ConfidenceLevel.HIGH
                 TransactionType.INCOME,
                 TransactionType.TRANSFER,
                 TransactionType.WITHDRAWAL,

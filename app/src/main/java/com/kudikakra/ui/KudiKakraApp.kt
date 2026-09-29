@@ -48,6 +48,7 @@ import com.kudikakra.domain.budget.BudgetEngine
 import com.kudikakra.domain.budget.BudgetStatus
 import com.kudikakra.domain.parser.ParseResult
 import com.kudikakra.domain.parser.ParserRegistry
+import com.kudikakra.domain.processor.TransactionFingerprintGenerator
 import com.kudikakra.notification.InspectedNotification
 import com.kudikakra.notification.NotificationEvent
 import com.kudikakra.notification.NotificationInspectorStore
@@ -162,6 +163,11 @@ private fun DashboardScreen(
     } else {
         remember { mutableStateOf(emptyList<TransactionEntity>()) }
     }
+    val pendingReviewList by if (viewModel != null) {
+        viewModel.pendingReviewTransactions.collectAsState()
+    } else {
+        remember { mutableStateOf(emptyList<TransactionEntity>()) }
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
@@ -174,6 +180,26 @@ private fun DashboardScreen(
                 ),
                 style = MaterialTheme.typography.bodyLarge
             )
+        }
+        if (pendingReviewList.isNotEmpty()) {
+            item {
+                Card {
+                    Row(
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Pending Review", fontWeight = FontWeight.Bold)
+                            Text(
+                                "${pendingReviewList.size} transaction(s) require confirmation before updating spending.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        Button(onClick = onOpenTransactions) { Text("Review") }
+                    }
+                }
+            }
         }
         item {
             SpendingSummaryCard(
@@ -254,6 +280,7 @@ private fun budgetStatusLabel(status: BudgetStatus): String = when (status) {
 @Composable
 private fun TransactionsScreen(viewModel: TransactionViewModel?) {
     val transactions by viewModel?.transactions?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList()) }
+    val pendingTransactions by viewModel?.pendingReviewTransactions?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList()) }
     var showAddDialog by remember { mutableStateOf(false) }
     var editingTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
     var transactionToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
@@ -275,6 +302,66 @@ private fun TransactionsScreen(viewModel: TransactionViewModel?) {
                     "Transactions will be stored locally on this device.",
                     style = MaterialTheme.typography.bodyLarge
                 )
+            }
+            if (pendingTransactions.isNotEmpty()) {
+                item {
+                    Text(
+                        "Needs Confirmation (${pendingTransactions.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                items(pendingTransactions) { pending ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "${pending.source} • ${pending.type.name}",
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    formatMoney(pending.amountMinorUnits),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Text(
+                                "Merchant: ${pending.merchant ?: "(unknown)"} | Confidence: ${pending.confidence}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = { viewModel?.confirmTransaction(pending) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Confirm")
+                                }
+                                OutlinedButton(
+                                    onClick = { editingTransaction = pending },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Edit")
+                                }
+                                TextButton(
+                                    onClick = { transactionToDelete = pending }
+                                ) {
+                                    Text("Reject")
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Text(
+                        "All Transactions",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
             if (transactions.isEmpty()) {
                 item {
@@ -849,6 +936,7 @@ private fun ParsedResultCard(result: ParseResult) {
             Text("Reason: ${result.reason}", style = MaterialTheme.typography.bodySmall)
 
             result.transaction?.let { txn ->
+                val fingerprint = TransactionFingerprintGenerator.generate(txn)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text("Source: ${txn.source}", fontWeight = FontWeight.SemiBold)
                 Text("Amount: ${formatMoney(txn.amountMinorUnits)} (${txn.amountMinorUnits} minor units)")
@@ -859,6 +947,7 @@ private fun ParsedResultCard(result: ParseResult) {
                 Text("Reference: ${txn.reference ?: "(none)"}")
                 Text("Confidence: ${txn.confidence}")
                 Text("Excluded from spending: ${txn.excludedFromSpending}")
+                Text("Fingerprint: ${fingerprint.take(16)}...", style = MaterialTheme.typography.bodySmall)
             }
         }
     }
