@@ -136,8 +136,8 @@ Make-or-break technical experiment
 
 - [x] Implement NotificationListenerService
 - [x] Request/guide user through notification access
-- [ ] Verify service starts
-- [ ] Verify service receives notifications
+- [x] Verify service starts
+- [x] Verify service receives notifications
 - [x] Log package name
 - [x] Log notification title
 - [x] Log notification text
@@ -163,13 +163,13 @@ Record what the phone actually exposes.
 
 PHASE 6 — Financial Detector
 
-- [ ] Create FinancialNotificationDetector
-- [ ] Identify likely financial notifications
-- [ ] Ignore unrelated notifications
-- [ ] Identify selected financial sources
-- [ ] Return confidence
-- [ ] Test false positives
-- [ ] Test false negatives
+- [x] Create FinancialNotificationDetector
+- [x] Identify likely financial notifications
+- [x] Ignore unrelated notifications
+- [x] Identify selected financial sources
+- [x] Return confidence
+- [x] Test false positives
+- [x] Test false negatives
 
 The detector should be conservative.
 
@@ -177,16 +177,16 @@ The detector should be conservative.
 
 PHASE 7 — Parser Framework
 
-- [ ] Create NotificationEvent
-- [ ] Create FinancialParser interface
-- [ ] Create ParseResult
-- [ ] Create ParserRegistry
-- [ ] Create normalized Transaction model
-- [ ] Add transaction direction
-- [ ] Add transaction type
-- [ ] Add confidence
-- [ ] Add excludedFromSpending
-- [ ] Add parser unit tests
+- [x] Create NotificationEvent
+- [x] Create FinancialParser interface
+- [x] Create ParseResult
+- [x] Create ParserRegistry
+- [x] Create normalized Transaction model
+- [x] Add transaction direction
+- [x] Add transaction type
+- [x] Add confidence
+- [x] Add excludedFromSpending
+- [x] Add parser unit tests
 
 ---
 
