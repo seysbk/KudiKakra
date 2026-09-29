@@ -6,10 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.kudikakra.data.local.database.AppDatabase
 import com.kudikakra.data.local.entity.TransactionEntity
 import com.kudikakra.data.local.entity.UserPreferencesEntity
+import com.kudikakra.data.repository.DailyBudgetRepository
 import com.kudikakra.data.repository.TransactionRepository
 import com.kudikakra.data.repository.UserPreferencesRepository
 import com.kudikakra.domain.model.ConfidenceLevel
 import com.kudikakra.domain.model.TransactionType
+import com.kudikakra.notification.SpendingNotificationHelper
+import com.kudikakra.notification.SpendingNotificationManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -18,7 +21,14 @@ import java.util.Calendar
 class TransactionViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getInstance(application)
     private val repository = TransactionRepository(db.transactionDao())
+    private val dailyBudgetRepository = DailyBudgetRepository(db.dailyBudgetDao())
     private val userPreferencesRepository = UserPreferencesRepository(db.userPreferencesDao())
+    private val notificationHelper = SpendingNotificationHelper(
+        repository,
+        dailyBudgetRepository,
+        userPreferencesRepository,
+        SpendingNotificationManager(application)
+    )
 
     val transactions = repository.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -31,11 +41,17 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
 
     fun insert(transaction: TransactionEntity) {
-        viewModelScope.launch { repository.insert(transaction) }
+        viewModelScope.launch {
+            repository.insert(transaction)
+            notificationHelper.checkAndNotify()
+        }
     }
 
     fun update(transaction: TransactionEntity) {
-        viewModelScope.launch { repository.update(transaction) }
+        viewModelScope.launch {
+            repository.update(transaction)
+            notificationHelper.checkAndNotify()
+        }
     }
 
     fun confirmTransaction(transaction: TransactionEntity) {
@@ -52,6 +68,7 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
                     userPreferencesRepository.save(prefs.withMerchantRule(merchant, transaction.type))
                 }
             }
+            notificationHelper.checkAndNotify()
         }
     }
 
@@ -72,6 +89,7 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
                     userPreferencesRepository.save(prefs.withMerchantRule(merchant, newType))
                 }
             }
+            notificationHelper.checkAndNotify()
         }
     }
 

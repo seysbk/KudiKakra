@@ -281,24 +281,24 @@ Budget Engine
  ↓
 Dashboard
 
-- [ ] Automatically save high-confidence expenses
-- [ ] Recalculate today's expenditure
-- [ ] Update remaining amount
-- [ ] Update dashboard immediately
-- [ ] Confirm income does not affect expenditure
-- [ ] Confirm withdrawals do not affect expenditure
+- [x] Automatically save high-confidence expenses
+- [x] Recalculate today's expenditure
+- [x] Update remaining amount
+- [x] Update dashboard immediately
+- [x] Confirm income does not affect expenditure
+- [x] Confirm withdrawals do not affect expenditure
 
 ---
 
 PHASE 13 — Spending Notifications
 
-- [ ] Create notification channel
-- [ ] Create approaching-budget notification
-- [ ] Create exceeded-budget notification
-- [ ] Avoid duplicate notifications
-- [ ] Add user-configurable threshold
-- [ ] Allow notifications to be disabled
-- [ ] Test notification behavior on real phone
+- [x] Create notification channel
+- [x] Create approaching-budget notification
+- [x] Create exceeded-budget notification
+- [x] Avoid duplicate notifications
+- [x] Add user-configurable threshold
+- [x] Allow notifications to be disabled
+- [x] Test notification behavior on real phone
 
 Example:
 

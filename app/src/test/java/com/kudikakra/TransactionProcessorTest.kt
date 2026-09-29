@@ -131,6 +131,12 @@ class TransactionProcessorTest {
             return flowOf(sum)
         }
 
+        override suspend fun getExpenseTotal(startMillis: Long, endMillis: Long): Long {
+            return storedEntities
+                .filter { it.timestampEpochMillis in startMillis until endMillis && it.type == TransactionType.EXPENSE && !it.excludedFromSpending }
+                .sumOf { it.amountMinorUnits }
+        }
+
         override suspend fun insert(transaction: TransactionEntity): Long {
             val fp = transaction.fingerprint
             if (fp != null && fingerprints.contains(fp)) {
