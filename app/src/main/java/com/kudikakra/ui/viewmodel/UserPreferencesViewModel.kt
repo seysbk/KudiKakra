@@ -6,15 +6,19 @@ import androidx.lifecycle.viewModelScope
 import com.kudikakra.data.local.database.AppDatabase
 import com.kudikakra.data.local.entity.UserPreferencesEntity
 import com.kudikakra.data.repository.UserPreferencesRepository
+import com.kudikakra.notification.NotificationInspectorStore
+import com.kudikakra.notification.SpendingNotificationManager
+import com.kudikakra.widget.SpendingWidgetUpdater
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class UserPreferencesViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = UserPreferencesRepository(
-        AppDatabase.getInstance(application).userPreferencesDao()
-    )
+    private val db = AppDatabase.getInstance(application)
+    private val repository = UserPreferencesRepository(db.userPreferencesDao())
 
     val preferences = repository.observe()
         .map { it ?: UserPreferencesEntity() }
@@ -32,6 +36,10 @@ class UserPreferencesViewModel(application: Application) : AndroidViewModel(appl
         copy(notificationThresholdPercent = percent.coerceIn(1, 100))
     }
 
+    fun setDeveloperModeEnabled(enabled: Boolean) = save {
+        copy(developerModeEnabled = enabled)
+    }
+
     fun toggleSource(source: com.kudikakra.notification.detection.FinancialSource, enabled: Boolean) = save {
         val currentSources = getEnabledFinancialSources().toMutableSet()
         if (enabled) {
@@ -45,6 +53,20 @@ class UserPreferencesViewModel(application: Application) : AndroidViewModel(appl
             currentSources.joinToString(",") { it.name }
         }
         copy(selectedSources = encoded)
+    }
+
+    fun deleteAllLocalData(onComplete: () -> Unit = {}) {
+        viewModelScope.launch(Dispatchers.IO) {
+            db.transactionDao().deleteAll()
+            db.dailyBudgetDao().deleteAll()
+            repository.save(UserPreferencesEntity())
+            NotificationInspectorStore.clear()
+            SpendingNotificationManager.resetDeduplicationState()
+            SpendingWidgetUpdater.update(getApplication())
+            withContext(Dispatchers.Main) {
+                onComplete()
+            }
+        }
     }
 
     private fun save(update: UserPreferencesEntity.() -> UserPreferencesEntity) {

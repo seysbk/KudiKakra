@@ -13,6 +13,7 @@ data class UserPreferencesEntity(
     val notificationThresholdPercent: Int = 80,
     val selectedSources: String = "",
     val merchantRules: String = "",
+    val developerModeEnabled: Boolean = false,
     val updatedAtEpochMillis: Long = System.currentTimeMillis()
 ) {
     fun getEnabledFinancialSources(): Set<FinancialSource> {

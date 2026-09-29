@@ -1,4 +1,4 @@
-﻿package com.kudikakra.notification
+package com.kudikakra.notification
 
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -74,7 +74,9 @@ class KudiKakraNotificationListenerService : NotificationListenerService() {
                 val budgetRepo = com.kudikakra.data.repository.DailyBudgetRepository(db.dailyBudgetDao())
                 val processor = TransactionProcessor(transactionRepo, preferencesRepository)
                 val result = processor.process(event)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Processed financial event: $result")
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Processed financial event result: ${result::class.simpleName}")
+                }
 
                 val notificationManager = SpendingNotificationManager(applicationContext)
                 val notificationHelper = SpendingNotificationHelper(
@@ -106,12 +108,11 @@ class KudiKakraNotificationListenerService : NotificationListenerService() {
         if (BuildConfig.DEBUG) {
             Log.d(
                 TAG,
-                "Notification received: package=${event.packageName}, " +
-                    "title=${event.title}, text=${event.text}, " +
+                "Notification event received: package=${event.packageName}, " +
+                    "textLength=${event.text.length}, " +
                     "timestamp=${event.timestampEpochMillis}"
             )
         }
-
     }
 
     private fun notificationText(extras: android.os.Bundle): String {
