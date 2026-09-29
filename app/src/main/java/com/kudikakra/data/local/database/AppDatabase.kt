@@ -36,6 +36,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "kudikakra.db"
                 )
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
                     .build().also { instance = it }
             }
 

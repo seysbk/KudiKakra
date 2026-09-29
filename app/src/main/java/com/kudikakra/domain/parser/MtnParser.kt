@@ -199,17 +199,25 @@ class MtnParser : FinancialParser {
     }
 
     private fun extractAmountMinorUnits(text: String): Long? {
-        val matches = AMOUNT_REGEX.findAll(text)
-        for (match in matches) {
-            val numStr = (match.groupValues[1].ifEmpty { match.groupValues[2] }).replace(",", "")
-            runCatching {
-                val bd = BigDecimal(numStr)
-                if (bd > BigDecimal.ZERO) {
-                    return bd.setScale(2, RoundingMode.HALF_UP).movePointRight(2).longValueExact()
-                }
-            }
+        val matches = AMOUNT_REGEX.findAll(text).toList()
+        if (matches.isEmpty()) return null
+
+        val primaryMatch = matches.firstOrNull { match ->
+            val matchIndex = match.range.first
+            val precedingText = text.substring(0, matchIndex).lowercase(Locale.ROOT)
+            val isFee = precedingText.takeLast(20).contains("fee")
+            val isBalance = precedingText.takeLast(25).contains("balance")
+            !isFee && !isBalance
         }
-        return null
+
+        val matchToUse = primaryMatch ?: matches.first()
+        val numStr = (matchToUse.groupValues[1].ifEmpty { matchToUse.groupValues[2] }).replace(",", "")
+        return runCatching {
+            val bd = BigDecimal(numStr)
+            if (bd > BigDecimal.ZERO) {
+                bd.setScale(2, RoundingMode.HALF_UP).movePointRight(2).longValueExact()
+            } else null
+        }.getOrNull()
     }
 
     private fun extractReference(text: String): String? {
@@ -226,8 +234,8 @@ class MtnParser : FinancialParser {
 
     private fun extractExpenseMerchant(fullText: String): String? {
         val toMatches = listOf(
-            Regex("""(?:paid|payment made for|payment of|payment|made)\s+(?:GH₵|GHS|GHC|GH)?\s*[\d,]+(?:\.\d{1,2})?\s+to\s+([A-Za-z0-9\s]+?)(?:\.|\s+Transaction|\s+Txn|\s+Fee|\s+Reference|\s+Ref|$)""", RegexOption.IGNORE_CASE),
-            Regex("""to\s+([A-Za-z0-9\s]+?)(?:\.|\s+Transaction|\s+Txn|\s+Fee|\s+Reference|\s+Ref|$)""", RegexOption.IGNORE_CASE)
+            Regex("""(?:paid|payment made for|payment of|payment|made)\s+(?:GH₵|GHS|GHC|GH)?\s*[\d,]+(?:\.\d{1,2})?\s+to\s+([A-Za-z0-9\s&'\.-]+?)(?:\.|\s+Transaction|\s+Txn|\s+Fee|\s+Reference|\s+Ref|$)""", RegexOption.IGNORE_CASE),
+            Regex("""to\s+([A-Za-z0-9\s&'\.-]+?)(?:\.|\s+Transaction|\s+Txn|\s+Fee|\s+Reference|\s+Ref|$)""", RegexOption.IGNORE_CASE)
         )
         for (regex in toMatches) {
             val match = regex.find(fullText)
