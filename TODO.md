@@ -216,15 +216,15 @@ Do not add five providers before the first parser works reliably.
 
 PHASE 9 — Transaction Classification
 
-- [ ] Correctly identify EXPENSE
-- [ ] Correctly identify INCOME
-- [ ] Correctly identify TRANSFER
-- [ ] Correctly identify WITHDRAWAL
-- [ ] Correctly identify UNKNOWN
-- [ ] Verify income is excluded from expenditure
-- [ ] Verify withdrawals are excluded from expenditure
-- [ ] Verify transfers are not automatically treated as expenses
-- [ ] Verify genuine expenses increase expenditure
+- [x] Correctly identify EXPENSE
+- [x] Correctly identify INCOME
+- [x] Correctly identify TRANSFER
+- [x] Correctly identify WITHDRAWAL
+- [x] Correctly identify UNKNOWN
+- [x] Verify income is excluded from expenditure
+- [x] Verify withdrawals are excluded from expenditure
+- [x] Verify transfers are not automatically treated as expenses
+- [x] Verify genuine expenses increase expenditure
 
 Important test:
 
