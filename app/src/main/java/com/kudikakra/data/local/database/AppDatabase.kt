@@ -15,7 +15,7 @@ import com.kudikakra.data.local.entity.UserPreferencesEntity
 
 @Database(
     entities = [TransactionEntity::class, DailyBudgetEntity::class, UserPreferencesEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(KudiKakraConverters::class)
@@ -35,7 +35,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "kudikakra.db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build().also { instance = it }
             }
 
@@ -55,6 +55,16 @@ abstract class AppDatabase : RoomDatabase() {
                         PRIMARY KEY(id)
                     )
                     """.trimIndent()
+                )
+            }
+        }
+
+        private val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+            override fun migrate(
+                db: androidx.sqlite.db.SupportSQLiteDatabase
+            ) {
+                db.execSQL(
+                    "ALTER TABLE user_preferences ADD COLUMN merchantRules TEXT NOT NULL DEFAULT ''"
                 )
             }
         }

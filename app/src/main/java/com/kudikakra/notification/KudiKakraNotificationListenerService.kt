@@ -5,7 +5,9 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.kudikakra.BuildConfig
 import com.kudikakra.data.local.database.AppDatabase
+import com.kudikakra.data.repository.TransactionRepository
 import com.kudikakra.data.repository.UserPreferencesRepository
+import com.kudikakra.domain.processor.TransactionProcessor
 import com.kudikakra.notification.detection.DetectionResult
 import com.kudikakra.notification.detection.FinancialNotificationDetector
 import com.kudikakra.notification.detection.FinancialSource
@@ -64,6 +66,15 @@ class KudiKakraNotificationListenerService : NotificationListenerService() {
 
             // Forward event and detection result to inspector store (memory-only, capped at 50).
             NotificationInspectorStore.add(event, detection)
+
+            if (detection is DetectionResult.Financial && (prefs?.automaticTrackingEnabled == true)) {
+                val transactionRepo = TransactionRepository(
+                    AppDatabase.getInstance(applicationContext).transactionDao()
+                )
+                val processor = TransactionProcessor(transactionRepo, preferencesRepository)
+                val result = processor.process(event)
+                if (BuildConfig.DEBUG) Log.d(TAG, "Processed financial event: $result")
+            }
 
             if (BuildConfig.DEBUG) {
                 when (detection) {

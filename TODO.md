@@ -208,7 +208,7 @@ MTNParser
 - [x] Implement parser
 - [x] Add unit tests
 - [x] Test parser with copied notification examples
-- [~] Test parser against real device notifications
+- [x] Test parser against real device notifications
 
 Do not add five providers before the first parser works reliably.
 
@@ -243,12 +243,12 @@ GH₵850
 
 PHASE 10 — Confidence + Review
 
-- [ ] HIGH confidence auto-save
-- [ ] MEDIUM confidence review/confirmation
-- [ ] LOW confidence ignore or hold
-- [ ] Create review UI if needed
-- [ ] Allow user to correct classification
-- [ ] Learn from corrections only if a safe deterministic mechanism exists
+- [x] HIGH confidence auto-save
+- [x] MEDIUM confidence review/confirmation
+- [x] LOW confidence ignore or hold
+- [x] Create review UI if needed
+- [x] Allow user to correct classification
+- [x] Learn from corrections only if a safe deterministic mechanism exists
 
 Do not add AI yet.
 
@@ -256,12 +256,12 @@ Do not add AI yet.
 
 PHASE 11 — Deduplication
 
-- [ ] Identify duplicate notification scenarios
-- [ ] Create transaction fingerprint
-- [ ] Prevent duplicate spending records
-- [ ] Test repeated notifications
-- [ ] Test delayed notifications
-- [ ] Test app restart during processing
+- [x] Identify duplicate notification scenarios
+- [x] Create transaction fingerprint
+- [x] Prevent duplicate spending records
+- [x] Test repeated notifications
+- [x] Test delayed notifications
+- [x] Test app restart during processing
 
 ---
 
