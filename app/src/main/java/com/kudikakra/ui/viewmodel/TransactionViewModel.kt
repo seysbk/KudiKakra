@@ -13,6 +13,7 @@ import com.kudikakra.domain.model.ConfidenceLevel
 import com.kudikakra.domain.model.TransactionType
 import com.kudikakra.notification.SpendingNotificationHelper
 import com.kudikakra.notification.SpendingNotificationManager
+import com.kudikakra.widget.SpendingWidgetUpdater
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -44,6 +45,7 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             repository.insert(transaction)
             notificationHelper.checkAndNotify()
+            SpendingWidgetUpdater.update(getApplication())
         }
     }
 
@@ -51,6 +53,7 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             repository.update(transaction)
             notificationHelper.checkAndNotify()
+            SpendingWidgetUpdater.update(getApplication())
         }
     }
 
@@ -69,6 +72,7 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
                 }
             }
             notificationHelper.checkAndNotify()
+            SpendingWidgetUpdater.update(getApplication())
         }
     }
 
@@ -90,11 +94,15 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
                 }
             }
             notificationHelper.checkAndNotify()
+            SpendingWidgetUpdater.update(getApplication())
         }
     }
 
     fun delete(transaction: TransactionEntity) {
-        viewModelScope.launch { repository.delete(transaction) }
+        viewModelScope.launch {
+            repository.delete(transaction)
+            SpendingWidgetUpdater.update(getApplication())
+        }
     }
 }
 

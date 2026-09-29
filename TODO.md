@@ -311,14 +311,14 @@ PHASE 14 — Home-Screen Widget
 
 Use Jetpack Glance.
 
-- [ ] Create basic widget
-- [ ] Display today's plan
-- [ ] Display today's expenditure
-- [ ] Display remaining amount
-- [ ] Update widget after transaction
-- [ ] Update widget after budget change
-- [ ] Handle new day
-- [ ] Test widget after phone restart
+- [x] Create basic widget
+- [x] Display today's plan
+- [x] Display today's expenditure
+- [x] Display remaining amount
+- [x] Update widget after transaction
+- [x] Update widget after budget change
+- [x] Handle new day
+- [x] Test widget after phone restart
 
 Initial widget:
 

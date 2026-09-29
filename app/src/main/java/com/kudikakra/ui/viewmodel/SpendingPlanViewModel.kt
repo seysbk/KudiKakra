@@ -9,6 +9,7 @@ import com.kudikakra.data.repository.DailyBudgetRepository
 import com.kudikakra.data.repository.TransactionRepository
 import com.kudikakra.domain.budget.BudgetEngine
 import com.kudikakra.domain.budget.BudgetSummary
+import com.kudikakra.widget.SpendingWidgetUpdater
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -40,12 +41,16 @@ class SpendingPlanViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch {
             if (budgetRepository.observeAll().first().isEmpty()) {
                 defaultPlans().forEach { budgetRepository.save(it) }
+                SpendingWidgetUpdater.update(getApplication())
             }
         }
     }
 
     fun save(budget: DailyBudgetEntity) {
-        viewModelScope.launch { budgetRepository.save(budget) }
+        viewModelScope.launch {
+            budgetRepository.save(budget)
+            SpendingWidgetUpdater.update(getApplication())
+        }
     }
 
     private fun defaultPlans(): List<DailyBudgetEntity> {

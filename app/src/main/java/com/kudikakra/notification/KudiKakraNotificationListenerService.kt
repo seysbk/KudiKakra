@@ -11,6 +11,7 @@ import com.kudikakra.domain.processor.TransactionProcessor
 import com.kudikakra.notification.detection.DetectionResult
 import com.kudikakra.notification.detection.FinancialNotificationDetector
 import com.kudikakra.notification.detection.FinancialSource
+import com.kudikakra.widget.SpendingWidgetUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -83,6 +84,7 @@ class KudiKakraNotificationListenerService : NotificationListenerService() {
                     notificationManager
                 )
                 notificationHelper.checkAndNotify()
+                SpendingWidgetUpdater.update(applicationContext)
             }
 
             if (BuildConfig.DEBUG) {
