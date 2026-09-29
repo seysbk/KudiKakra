@@ -11,6 +11,9 @@ interface UserPreferencesDao {
     @Query("SELECT * FROM user_preferences WHERE id = 1 LIMIT 1")
     fun observe(): Flow<UserPreferencesEntity?>
 
+    @Query("SELECT * FROM user_preferences WHERE id = 1 LIMIT 1")
+    suspend fun getPreferencesSync(): UserPreferencesEntity?
+
     @Upsert
     suspend fun upsert(preferences: UserPreferencesEntity)
 }
