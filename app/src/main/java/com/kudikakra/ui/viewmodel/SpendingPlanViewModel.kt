@@ -39,10 +39,7 @@ class SpendingPlanViewModel(application: Application) : AndroidViewModel(applica
 
     init {
         viewModelScope.launch {
-            if (budgetRepository.observeAll().first().isEmpty()) {
-                defaultPlans().forEach { budgetRepository.save(it) }
-                SpendingWidgetUpdater.update(getApplication())
-            }
+            SpendingWidgetUpdater.update(getApplication())
         }
     }
 
@@ -50,22 +47,6 @@ class SpendingPlanViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch {
             budgetRepository.save(budget)
             SpendingWidgetUpdater.update(getApplication())
-        }
-    }
-
-    private fun defaultPlans(): List<DailyBudgetEntity> {
-        val amounts = mapOf(
-            Calendar.MONDAY to 4_000L,
-            Calendar.TUESDAY to 5_000L,
-            Calendar.WEDNESDAY to 4_000L,
-            Calendar.THURSDAY to 6_000L,
-            Calendar.FRIDAY to 8_000L,
-            Calendar.SATURDAY to 12_000L,
-            Calendar.SUNDAY to 6_000L
-        )
-        val now = System.currentTimeMillis()
-        return amounts.map { (day, amount) ->
-            DailyBudgetEntity(dayOfWeek = day, amountMinorUnits = amount, updatedAtEpochMillis = now)
         }
     }
 }
