@@ -11,13 +11,35 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +61,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -70,14 +93,20 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
-private enum class AppScreen(val title: String, val shortLabel: String, val isDeveloperTool: Boolean = false) {
-    DASHBOARD("Today", "Home"),
-    TRANSACTIONS("Transactions", "History"),
-    PLAN("Spending plan", "Plan"),
-    SETTINGS("Settings", "Settings"),
-    DEVELOPER("Developer tools", "Tools", isDeveloperTool = true),
-    NOTIFICATION_INSPECTOR("Notification inspector", "Inspect", isDeveloperTool = true),
-    PARSER_PLAYGROUND("Parser playground", "Playground", isDeveloperTool = true)
+private enum class AppScreen(
+    val title: String,
+    val shortLabel: String,
+    val icon: ImageVector,
+    val selectedIcon: ImageVector,
+    val isDeveloperTool: Boolean = false
+) {
+    DASHBOARD("Today", "Home", Icons.Outlined.Home, Icons.Filled.Home),
+    PLAN("Spending plan", "Plan", Icons.Outlined.CalendarMonth, Icons.Filled.CalendarMonth),
+    TRANSACTIONS("Transactions", "History", Icons.AutoMirrored.Outlined.ReceiptLong, Icons.AutoMirrored.Filled.ReceiptLong),
+    SETTINGS("Settings", "Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
+    DEVELOPER("Developer tools", "Tools", Icons.Outlined.BugReport, Icons.Filled.BugReport, isDeveloperTool = true),
+    NOTIFICATION_INSPECTOR("Notification inspector", "Inspect", Icons.Outlined.BugReport, Icons.Filled.BugReport, isDeveloperTool = true),
+    PARSER_PLAYGROUND("Parser playground", "Playground", Icons.Outlined.BugReport, Icons.Filled.BugReport, isDeveloperTool = true)
 }
 
 @Composable
@@ -98,16 +127,16 @@ fun KudiKakraApp(
         if (preferences.developerModeEnabled) {
             listOf(
                 AppScreen.DASHBOARD,
-                AppScreen.TRANSACTIONS,
                 AppScreen.PLAN,
+                AppScreen.TRANSACTIONS,
                 AppScreen.SETTINGS,
                 AppScreen.DEVELOPER
             )
         } else {
             listOf(
                 AppScreen.DASHBOARD,
-                AppScreen.TRANSACTIONS,
                 AppScreen.PLAN,
+                AppScreen.TRANSACTIONS,
                 AppScreen.SETTINGS
             )
         }
@@ -117,16 +146,60 @@ fun KudiKakraApp(
         currentScreen = AppScreen.DASHBOARD
     }
 
+    val context = LocalContext.current
+    val notificationAccessEnabled = remember {
+        NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+    }
+    var showPermissionPromptDialog by remember { mutableStateOf(!notificationAccessEnabled) }
+
+    if (showPermissionPromptDialog && !notificationAccessEnabled) {
+        AlertDialog(
+            onDismissRequest = { showPermissionPromptDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.NotificationsActive,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = { Text("Allow Notification Access") },
+            text = {
+                Text("KudiKakra automatically detects MoMo payment alerts on your device to keep your daily spending plan updated. All data is processed 100% locally on your phone without internet access.\n\nPlease grant Notification Listener Access so the app can function automatically.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showPermissionPromptDialog = false
+                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    }
+                ) {
+                    Text("Grant Access")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionPromptDialog = false }) {
+                    Text("Later")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = { AppHeader(title = currentScreen.title) },
         bottomBar = {
             NavigationBar {
                 visibleNavScreens.forEach { screen ->
+                    val isSelected = currentScreen == screen ||
+                        (screen == AppScreen.DEVELOPER && (currentScreen == AppScreen.NOTIFICATION_INSPECTOR || currentScreen == AppScreen.PARSER_PLAYGROUND))
                     NavigationBarItem(
-                        selected = currentScreen == screen ||
-                            (screen == AppScreen.DEVELOPER && (currentScreen == AppScreen.NOTIFICATION_INSPECTOR || currentScreen == AppScreen.PARSER_PLAYGROUND)),
+                        selected = isSelected,
                         onClick = { currentScreen = screen },
-                        icon = { Text(screen.shortLabel.take(1)) },
+                        icon = {
+                            Icon(
+                                imageVector = if (isSelected) screen.selectedIcon else screen.icon,
+                                contentDescription = screen.shortLabel
+                            )
+                        },
                         label = { Text(screen.shortLabel) }
                     )
                 }
@@ -167,8 +240,15 @@ fun KudiKakraApp(
 
 @Composable
 private fun AppHeader(title: String) {
-    Surface(shadowElevation = 2.dp) {
-        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shadowElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+        ) {
             Text(
                 text = "KudiKakra",
                 style = MaterialTheme.typography.labelLarge,
@@ -246,11 +326,19 @@ private fun DashboardScreen(
         item {
             Card {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        if (transactionCount.isEmpty()) "No spending recorded yet"
-                        else "${transactionCount.size} transaction(s) recorded",
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text(
+                            if (transactionCount.isEmpty()) "No spending recorded yet"
+                            else "${transactionCount.size} transaction(s) recorded",
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         "KudiKakra tracks your daily spending locally. Expenses automatically update your daily spending plan.",
@@ -267,10 +355,38 @@ private fun DashboardScreen(
         item {
             Card {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("How KudiKakra counts spending", fontWeight = FontWeight.SemiBold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Widgets,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text("Add Home Screen Widget", fontWeight = FontWeight.SemiBold)
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        "Add the KudiKakra widget to your phone's home screen to easily check today's remaining spending at a glance with a compact squircle design.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text("How KudiKakra counts spending", fontWeight = FontWeight.SemiBold)
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Expenses count toward today's plan.")
-                    Text("Income, transfers, and cash withdrawals do not count automatically.")
+                    Text("• Expense — counts toward today's plan automatically.", style = MaterialTheme.typography.bodyMedium)
+                    Text("• Income, Transfers & Cash Withdrawals — excluded from daily spending.", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
@@ -321,7 +437,7 @@ private fun TransactionsScreen(viewModel: TransactionViewModel?) {
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
-                Text("+")
+                Icon(imageVector = Icons.Default.Add, contentDescription = "Add transaction")
             }
         }
     ) { innerPadding ->
@@ -434,10 +550,10 @@ private fun TransactionsScreen(viewModel: TransactionViewModel?) {
                             )
                             Row {
                                 IconButton(onClick = { editingTransaction = t }) {
-                                    Text("E")
+                                    Icon(Icons.Default.Edit, contentDescription = "Edit")
                                 }
                                 IconButton(onClick = { transactionToDelete = t }) {
-                                    Text("D")
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }
