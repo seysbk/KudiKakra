@@ -57,8 +57,7 @@ class TransactionProcessorTest {
     }
 
     @Test
-    fun `MEDIUM confidence notification is saved for review and excluded from spending`() = runBlocking {
-        // Expense message missing merchant name -> produces MEDIUM confidence
+    fun `explicit expense auto-saves without requiring merchant confirmation`() = runBlocking {
         val event = NotificationEvent(
             packageName = "com.mtn.momo",
             title = "MoMo",
@@ -68,10 +67,10 @@ class TransactionProcessorTest {
 
         val result = processor.process(event)
 
-        assertTrue(result is ProcessingResult.SavedForReview)
-        val saved = (result as ProcessingResult.SavedForReview).entity
-        assertEquals(ConfidenceLevel.MEDIUM, saved.confidence)
-        assertTrue("Medium confidence expense MUST be excluded from spending until confirmed", saved.excludedFromSpending)
+        assertTrue(result is ProcessingResult.SavedAuto)
+        val saved = (result as ProcessingResult.SavedAuto).entity
+        assertEquals(ConfidenceLevel.HIGH, saved.confidence)
+        assertFalse("Explicit expense action should count without a merchant name", saved.excludedFromSpending)
     }
 
     @Test
@@ -89,6 +88,41 @@ class TransactionProcessorTest {
         val duplicateResult = processor.process(event)
         assertTrue("Duplicate notification must return ProcessingResult.Duplicate", duplicateResult is ProcessingResult.Duplicate)
         assertEquals(1, fakeTxnDao.storedEntities.size)
+    }
+
+    @Test
+    fun `same referenced transaction from SMS and MoMo app is stored once`() = runBlocking {
+        val appEvent = NotificationEvent(
+            packageName = "com.mtn.momo",
+            title = "MoMo",
+            text = "Payment made for GH₵ 50.00 to Supermarket. Transaction ID: 12345678.",
+            timestampEpochMillis = 1000000L
+        )
+        val smsEvent = NotificationEvent(
+            packageName = "com.google.android.apps.messaging",
+            title = "MTN MoMo",
+            text = "Payment made for GH₵ 50.00 to Supermarket. Transaction ID: 12345678.",
+            timestampEpochMillis = 1005000L
+        )
+
+        assertTrue(processor.process(appEvent) is ProcessingResult.SavedAuto)
+        assertTrue(processor.process(smsEvent) is ProcessingResult.Duplicate)
+        assertEquals(1, fakeTxnDao.storedEntities.size)
+    }
+
+    @Test
+    fun `unparsed non-financial notification is not persisted as zero transaction`() = runBlocking {
+        val event = NotificationEvent(
+            packageName = "com.mtn.momo",
+            title = "MoMo",
+            text = "Your MoMo PIN was changed successfully.",
+            timestampEpochMillis = 1000000L
+        )
+
+        val result = processor.process(event)
+
+        assertTrue(result is ProcessingResult.NotParsed)
+        assertTrue(fakeTxnDao.storedEntities.isEmpty())
     }
 
     @Test

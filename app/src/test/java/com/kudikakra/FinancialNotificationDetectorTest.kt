@@ -199,6 +199,18 @@ class FinancialNotificationDetectorTest {
         assertNotFinancial(result)
     }
 
+    @Test
+    fun `Provider profile update notification is NOT financial`() {
+        val result = detector.detect(
+            event(
+                packageName = "com.mtn.momo",
+                title = "MoMo",
+                text = "Your profile details were updated successfully."
+            )
+        )
+        assertNotFinancial(result)
+    }
+
     // ── False negatives — financial notifications that must NOT be missed ──────
 
     @Test

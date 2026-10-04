@@ -1,6 +1,6 @@
-KudiKakra — Project Context
+# KudiKakra — Project Context
 
-1. Project Overview
+## 1. Project Overview
 
 KudiKakra is a privacy-focused Android spending-awareness application.
 
@@ -24,7 +24,7 @@ KudiKakra aims to make digital spending visible again.
 
 ---
 
-2. Core Product Idea
+## 2. Core Product Idea
 
 KudiKakra automatically detects supported financial transaction notifications on the user's Android device.
 
@@ -47,7 +47,7 @@ There is no backend, cloud database, financial API, remote AI service or account
 
 ---
 
-3. Primary Goal
+## 3. Primary Goal
 
 The main question KudiKakra should help answer is:
 
@@ -59,17 +59,19 @@ The home screen should therefore focus on expenditure and the user's spending pl
 
 Example:
 
+```text
 «Today's Spending
 GH₵48 / GH₵60
 GH₵12 remaining»
+```
 
 ---
 
-4. What Counts as Spending?
+## 4. What Counts as Spending?
 
 The application must distinguish between:
 
-EXPENSE
+### EXPENSE
 
 Money genuinely spent on something.
 
@@ -84,7 +86,7 @@ Examples:
 
 These transactions contribute to the user's daily expenditure.
 
-TRANSFER / SENT
+### TRANSFER / SENT
 
 Money sent from the user's account to another person or account.
 
@@ -92,7 +94,7 @@ For MVP purposes, a sent transaction may be treated as expenditure only when the
 
 If it is clearly a transfer between the user's own accounts or a movement of money that should not count as spending, it should be excluded from expenditure.
 
-INCOME / RECEIVED
+### INCOME / RECEIVED
 
 Money received by the user.
 
@@ -110,13 +112,15 @@ The MVP may store received transactions for classification/history purposes, but
 
 ---
 
-5. Large Withdrawals / Cash-Outs
+## 5. Large Withdrawals / Cash-Outs
 
 A major edge case is a user receiving or withdrawing a large amount of money that they have not actually spent.
 
 Example:
 
+```text
 A user receives GH₵1,000 and later withdraws GH₵800 in cash.
+```
 
 The GH₵800 withdrawal does not necessarily mean the user spent GH₵800.
 
@@ -124,11 +128,15 @@ It may simply mean the user moved money from digital form into physical cash.
 
 Therefore:
 
+```text
 «A withdrawal/cash-out must NOT automatically be treated as expenditure.»
+```
 
 The transaction should be classified as:
 
+```text
 "WITHDRAWAL"
+```
 
 and excluded from spending calculations by default.
 
@@ -138,7 +146,7 @@ This distinction is important because the purpose of KudiKakra is to measure act
 
 ---
 
-6. Privacy Philosophy
+## 6. Privacy Philosophy
 
 Financial information is highly sensitive.
 
@@ -163,7 +171,7 @@ The MVP should not:
 
 ---
 
-7. Supported Sources
+## 7. Supported Sources
 
 The user should select which financial services they want KudiKakra to monitor.
 
@@ -184,7 +192,7 @@ The architecture must make adding a new parser easy later.
 
 ---
 
-8. How Transactions Enter the System
+## 8. How Transactions Enter the System
 
 The MVP is notification-first.
 
@@ -200,7 +208,7 @@ However, notification behavior must be tested on real devices because not every 
 
 ---
 
-9. Spending Plans
+## 9. Spending Plans
 
 Users can configure a different spending plan for each day of the week.
 
@@ -224,7 +232,7 @@ It should provide information at the right time.
 
 ---
 
-10. User Experience
+## 10. User Experience
 
 The application should feel informative rather than judgmental.
 
@@ -248,7 +256,7 @@ The application provides information. The user makes their own decisions.
 
 ---
 
-11. Home-Screen Widget
+## 11. Home-Screen Widget
 
 The widget is a core MVP feature.
 
@@ -266,7 +274,7 @@ A simple useful widget is better than a complex widget with charts and unnecessa
 
 ---
 
-12. Notifications
+## 12. Notifications
 
 KudiKakra may notify users when:
 
@@ -283,7 +291,7 @@ The notification system should be configurable and not become intrusive.
 
 ---
 
-13. MVP Boundaries
+## 13. MVP Boundaries
 
 The MVP should focus on:
 
@@ -317,7 +325,7 @@ The MVP does NOT require:
 
 ---
 
-14. Long-Term Direction
+## 14. Long-Term Direction
 
 Future versions may include:
 
@@ -338,7 +346,7 @@ These are future features and must not unnecessarily complicate the MVP.
 
 ---
 
-15. Product Philosophy
+## 15. Product Philosophy
 
 KudiKakra is not a bank.
 

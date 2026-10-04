@@ -2,17 +2,23 @@ package com.kudikakra.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
+import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
+import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
@@ -20,6 +26,7 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -28,16 +35,22 @@ import com.kudikakra.data.local.database.AppDatabase
 import com.kudikakra.domain.budget.BudgetEngine
 import com.kudikakra.domain.budget.BudgetSummary
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
+import java.text.SimpleDateFormat
 
 class SpendingWidget : GlanceAppWidget() {
+    override val sizeMode = SizeMode.Responsive(
+        setOf(DpSize(120.dp, 84.dp), DpSize(180.dp, 116.dp))
+    )
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val summary = getTodayBudgetSummary(context)
+        val refreshedAt = System.currentTimeMillis()
 
         provideContent {
             GlanceTheme {
-                SpendingWidgetContent(summary = summary)
+                SpendingWidgetContent(summary = summary, refreshedAt = refreshedAt)
             }
         }
     }
@@ -79,19 +92,22 @@ class SpendingWidget : GlanceAppWidget() {
 @Composable
 fun SpendingWidgetContent(
     summary: BudgetSummary,
+    refreshedAt: Long = System.currentTimeMillis(),
     modifier: GlanceModifier = GlanceModifier
 ) {
     val spentFormatted = formatMoney(summary.spentMinorUnits)
     val planFormatted = summary.planMinorUnits?.let { formatMoney(it) } ?: "No plan"
     val remainingFormatted = summary.remainingMinorUnits?.let { "${formatMoney(it)} remaining" } ?: "No plan set"
+    val progress = summary.percentageUsed.coerceIn(0, 100)
+    val dayLabel = SimpleDateFormat("EEE, MMM d", Locale.getDefault()).format(Date(refreshedAt))
+    val refreshLabel = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(refreshedAt))
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .cornerRadius(16.dp)
-            .background(GlanceTheme.colors.surface)
-            .padding(16.dp)
-            .clickable(actionStartActivity<MainActivity>()),
+            .cornerRadius(14.dp)
+            .background(GlanceTheme.colors.primaryContainer)
+            .padding(10.dp),
         verticalAlignment = Alignment.Top,
         horizontalAlignment = Alignment.Start
     ) {
@@ -101,32 +117,69 @@ fun SpendingWidgetContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "TODAY",
+                text = "Today · $dayLabel",
+                modifier = GlanceModifier.clickable(actionStartActivity<MainActivity>()),
                 style = TextStyle(
-                    color = GlanceTheme.colors.primary,
+                    color = GlanceTheme.colors.onPrimaryContainer,
                     fontWeight = FontWeight.Bold
                 )
             )
+            Spacer(modifier = GlanceModifier.width(4.dp))
+            Text(
+                text = "Refresh",
+                modifier = GlanceModifier.clickable(actionRunCallback<RefreshSpendingWidgetAction>()),
+                style = TextStyle(color = GlanceTheme.colors.primary)
+            )
         }
 
-        Spacer(modifier = GlanceModifier.height(8.dp))
+        Spacer(modifier = GlanceModifier.height(4.dp))
 
         Text(
             text = "$spentFormatted / $planFormatted",
             style = TextStyle(
-                color = GlanceTheme.colors.onSurface,
+                color = GlanceTheme.colors.onPrimaryContainer,
                 fontWeight = FontWeight.Bold
             )
         )
 
         Spacer(modifier = GlanceModifier.height(4.dp))
 
+        Box(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .cornerRadius(5.dp)
+                .background(GlanceTheme.colors.surfaceVariant)
+        ) {
+            Box(
+                modifier = GlanceModifier
+                    .width((progress * 1.2f).dp)
+                    .height(8.dp)
+                    .cornerRadius(5.dp)
+                    .background(GlanceTheme.colors.primary)
+            ) {}
+        }
+
+        Spacer(modifier = GlanceModifier.height(4.dp))
+
         Text(
-            text = remainingFormatted,
-            style = TextStyle(
-                color = GlanceTheme.colors.onSurfaceVariant
-            )
+            text = "$remainingFormatted · ${progress.coerceIn(0, 100)}%",
+            style = TextStyle(color = GlanceTheme.colors.onPrimaryContainer)
         )
+        Text(
+            text = "Updated $refreshLabel",
+            style = TextStyle(color = GlanceTheme.colors.onPrimaryContainer)
+        )
+    }
+}
+
+class RefreshSpendingWidgetAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters
+    ) {
+        SpendingWidget().update(context, glanceId)
     }
 }
 

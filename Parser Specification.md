@@ -1,6 +1,6 @@
-KudiKakra — Parser Specification
+# KudiKakra — Parser Specification
 
-1. Purpose
+## 1. Purpose
 
 The parser system converts financial notifications into normalized transaction records.
 
@@ -10,8 +10,9 @@ Do not use AI for basic transaction extraction in the MVP.
 
 ---
 
-2. Parser Pipeline
+## 2. Parser Pipeline
 
+```text
 Android Notification
         ↓
 NotificationEvent
@@ -29,17 +30,20 @@ Validation
 Confidence
         ↓
 Transaction
+```
 
 ---
 
-3. NotificationEvent
+## 3. NotificationEvent
 
 A notification event should contain:
 
+```text
 packageName
 title
 text
 timestamp
+```
 
 The parser should work from this event.
 
@@ -47,20 +51,22 @@ Do not make parsers dependent on Android UI components.
 
 ---
 
-4. FinancialParser Interface
+## 4. FinancialParser Interface
 
 All provider parsers should follow the same conceptual interface:
 
+```kotlin
 interface FinancialParser {
     fun canHandle(event: NotificationEvent): Boolean
     fun parse(event: NotificationEvent): ParseResult
 }
+```
 
 The exact implementation may differ.
 
 ---
 
-5. ParseResult
+## 5. ParseResult
 
 A parse result should contain:
 
@@ -71,23 +77,27 @@ reason
 
 Example:
 
+```text
 success = true
 confidence = HIGH
 transaction.type = EXPENSE
 transaction.amount = 25.00
 transaction.currency = GHS
+```
 
 ---
 
-6. Transaction Types
+## 6. Transaction Types
 
 Every parsed transaction must have one primary type:
 
+```text
 EXPENSE
 INCOME
 TRANSFER
 WITHDRAWAL
 UNKNOWN
+```
 
 EXPENSE
 
@@ -142,18 +152,21 @@ Unknown transactions must not automatically increase expenditure.
 
 ---
 
-7. Direction
+## 7. Direction
 
 The parser should explicitly identify money direction.
 
+```text
 IN
 OUT
 UNKNOWN
+```
 
 This is separate from transaction type.
 
 Example:
 
+```text
 Direction: IN
 Type: INCOME
 
@@ -166,6 +179,7 @@ or:
 
 Direction: OUT
 Type: WITHDRAWAL
+```
 
 This prevents the common mistake of assuming:
 
@@ -173,7 +187,7 @@ money left account = money spent
 
 ---
 
-8. Important Semantic Distinction
+## 8. Important Semantic Distinction
 
 The parser should distinguish:
 
@@ -191,6 +205,7 @@ These are not automatically the same thing.
 
 For example:
 
+```text
 Received GH₵1,000
 
 means:
@@ -204,15 +219,17 @@ Sent GH₵1,000 to another person
 means:
 
 TRANSFER
+```
 
 unless there is evidence that the payment represents a purchase.
 
 ---
 
-9. Extraction Fields
+## 9. Extraction Fields
 
 Where available, extract:
 
+```text
 amount
 currency
 type
@@ -222,6 +239,7 @@ reference
 timestamp
 source
 confidence
+```
 
 Do not require every field to be present.
 
@@ -229,15 +247,17 @@ The amount and transaction direction/type are more important than merchant infor
 
 ---
 
-10. Amount Extraction
+## 10. Amount Extraction
 
 The parser should support Ghanaian currency representations such as:
 
+```text
 GH₵25
 GH₵25.00
 GHS 25
 GHS25
 25.00 GHS
+```
 
 Use deterministic parsing and regular expressions where appropriate.
 
@@ -247,7 +267,7 @@ Notification wording may change.
 
 ---
 
-11. Expense Keywords
+## 11. Expense Keywords
 
 Potential indicators include words such as:
 
@@ -265,7 +285,7 @@ Do not classify a transaction based on a single keyword when the surrounding mes
 
 ---
 
-12. Income Keywords
+## 12. Income Keywords
 
 Potential indicators include:
 
@@ -280,7 +300,7 @@ Again, use the overall notification context.
 
 ---
 
-13. Transfer Keywords
+## 13. Transfer Keywords
 
 Potential indicators include:
 
@@ -293,7 +313,7 @@ A transfer should remain a transfer unless the notification clearly indicates th
 
 ---
 
-14. Withdrawal Keywords
+## 14. Withdrawal Keywords
 
 Potential indicators include:
 
@@ -308,24 +328,26 @@ Do not automatically count these as expenditure.
 
 ---
 
-15. Large Withdrawal Rule
+## 15. Large Withdrawal Rule
 
 A large withdrawal must not automatically become a large expense.
 
 Example:
 
+```text
 Withdrawal: GH₵1,000
 
 should produce:
 
 type = WITHDRAWAL
 excludedFromSpending = true
+```
 
 The user can later manually record actual cash expenses if the product supports this.
 
 ---
 
-16. Parser Confidence
+## 16. Parser Confidence
 
 HIGH
 
@@ -355,7 +377,7 @@ Use when:
 
 ---
 
-17. Parser Registry
+## 17. Parser Registry
 
 Do not write:
 
@@ -387,7 +409,7 @@ Add more only when needed.
 
 ---
 
-18. Generic Parser
+## 18. Generic Parser
 
 A generic parser may be used as a fallback.
 
@@ -403,7 +425,7 @@ False expenditure is more harmful to the product than missing one transaction.
 
 ---
 
-19. Provider Parser Versions
+## 19. Provider Parser Versions
 
 Notification formats can change.
 
@@ -421,7 +443,7 @@ Do not create versions prematurely. Introduce them only when real notification v
 
 ---
 
-20. Parser Testing
+## 20. Parser Testing
 
 Every parser should have unit tests using representative notification examples.
 
@@ -460,7 +482,7 @@ excludedFromSpending = true
 
 ---
 
-21. Parser Playground
+## 21. Parser Playground
 
 During development, create a screen where a developer can paste a notification and run the parser.
 
@@ -480,7 +502,7 @@ This is one of the most important development tools for this project.
 
 ---
 
-22. Parser Safety Principle
+## 22. Parser Safety Principle
 
 The parser must prefer:
 
@@ -496,7 +518,7 @@ Conservative classification is therefore preferred over aggressive classificatio
 
 ---
 
-23. Normalized Output
+## 23. Normalized Output
 
 Regardless of provider, the rest of the application should receive the same normalized model.
 
@@ -513,5 +535,6 @@ Transaction
     confidence,
     excludedFromSpending
 }
+```
 
 The dashboard, budget engine and widget should never need to know how MTN, GCB or another provider formats its notification.

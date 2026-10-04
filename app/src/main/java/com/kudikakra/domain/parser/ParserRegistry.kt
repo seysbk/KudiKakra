@@ -22,7 +22,9 @@ class ParserRegistry(
 
     companion object {
         val DEFAULT_PARSERS: List<FinancialParser> = listOf(
-            MtnParser()
+            MtnParser(),
+            GcbParser(),
+            TelecelCashParser(),
         )
     }
 }

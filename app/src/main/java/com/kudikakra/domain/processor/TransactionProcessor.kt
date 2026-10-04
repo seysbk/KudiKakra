@@ -30,11 +30,11 @@ class TransactionProcessor(
         val merchantRules = prefs?.getMerchantRules() ?: emptyMap()
 
         val parsedTransaction = parseResult.transaction
-            ?: return if (parseResult.confidence == ConfidenceLevel.LOW) {
-                handleUnknownOrLowConfidence(event, parseResult)
-            } else {
-                ProcessingResult.NotParsed(parseResult.reason)
-            }
+            ?: return ProcessingResult.NotParsed(parseResult.reason)
+
+        if (parsedTransaction.amountMinorUnits <= 0L || parsedTransaction.type == TransactionType.UNKNOWN) {
+            return ProcessingResult.NotParsed("Notification is not a valid non-zero transaction")
+        }
 
         // Apply safe deterministic merchant rules if a matching user correction exists
         val merchantKey = parsedTransaction.merchant?.trim()?.lowercase(Locale.ROOT).orEmpty()
@@ -77,43 +77,6 @@ class TransactionProcessor(
             ConfidenceLevel.HIGH -> ProcessingResult.SavedAuto(entity)
             ConfidenceLevel.MEDIUM -> ProcessingResult.SavedForReview(entity)
             ConfidenceLevel.LOW -> ProcessingResult.HeldLowConfidence(entity)
-        }
-    }
-
-    private suspend fun handleUnknownOrLowConfidence(
-        event: NotificationEvent,
-        parseResult: ParseResult
-    ): ProcessingResult {
-        val fingerprint = TransactionFingerprintGenerator.generate(
-            source = "Unknown",
-            type = TransactionType.UNKNOWN.name,
-            amountMinorUnits = 0L,
-            reference = null,
-            merchant = event.title,
-            timestampEpochMillis = event.timestampEpochMillis
-        )
-
-        val entity = TransactionEntity(
-            source = "Unknown",
-            amountMinorUnits = 0L,
-            currency = "GHS",
-            type = TransactionType.UNKNOWN,
-            direction = com.kudikakra.domain.model.TransactionDirection.UNKNOWN,
-            merchant = event.title.ifBlank { null },
-            reference = null,
-            timestampEpochMillis = event.timestampEpochMillis,
-            confidence = ConfidenceLevel.LOW,
-            category = null,
-            excludedFromSpending = true,
-            fingerprint = fingerprint,
-            createdAtEpochMillis = System.currentTimeMillis()
-        )
-
-        val rowId = repository.insert(entity)
-        return if (rowId == -1L) {
-            ProcessingResult.Duplicate(fingerprint)
-        } else {
-            ProcessingResult.HeldLowConfidence(entity)
         }
     }
 }

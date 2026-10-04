@@ -1,7 +1,11 @@
 package com.kudikakra.ui
 
+import android.Manifest
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.NotificationManagerCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -723,6 +727,23 @@ private fun SettingsScreen(viewModel: UserPreferencesViewModel?) {
     val notificationAccessEnabled = NotificationManagerCompat
         .getEnabledListenerPackages(context)
         .contains(context.packageName)
+    var postNotificationsAllowed by remember {
+        mutableStateOf(
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                NotificationManagerCompat.from(context).areNotificationsEnabled()
+        )
+    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        postNotificationsAllowed = granted || NotificationManagerCompat.from(context).areNotificationsEnabled()
+        if (!postNotificationsAllowed) {
+            context.startActivity(
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            )
+        }
+    }
     val preferences by if (viewModel != null) {
         viewModel.preferences.collectAsState()
     } else {
@@ -752,6 +773,30 @@ private fun SettingsScreen(viewModel: UserPreferencesViewModel?) {
                 checked = preferences.spendingNotificationsEnabled,
                 onCheckedChange = { viewModel?.setSpendingNotificationsEnabled(it) }
             )
+        }
+
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Spending alert permission", fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        if (postNotificationsAllowed) "Status: Allowed" else "Status: Not allowed. Android is blocking budget alerts.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (postNotificationsAllowed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
+                    if (!postNotificationsAllowed) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            }
+                        ) { Text("Allow spending alerts") }
+                    }
+                }
+            }
         }
 
         item {

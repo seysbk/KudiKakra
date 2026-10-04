@@ -70,6 +70,15 @@ class MtnParser : FinancialParser {
 
         val (type, direction, confidence, merchant) = classify(fullText, lowerText, amountMinorUnits)
 
+        if (type == TransactionType.UNKNOWN) {
+            return ParseResult(
+                success = false,
+                transaction = null,
+                confidence = ConfidenceLevel.LOW,
+                reason = "MTN MoMo notification does not describe a supported transaction"
+            )
+        }
+
         val transaction = NormalizedTransaction(
             amountMinorUnits = amountMinorUnits,
             currency = "GHS",
@@ -82,13 +91,11 @@ class MtnParser : FinancialParser {
             confidence = confidence
         )
 
-        val isSuccess = type != TransactionType.UNKNOWN
-
         return ParseResult(
-            success = isSuccess,
+            success = true,
             transaction = transaction,
             confidence = confidence,
-            reason = if (isSuccess) "Parsed MTN MoMo $type transaction" else "Could not classify MTN MoMo transaction type"
+            reason = "Parsed MTN MoMo $type transaction"
         )
     }
 
@@ -122,11 +129,10 @@ class MtnParser : FinancialParser {
         // 3. EXPENSE
         if (isExpensePattern(lowerText)) {
             val merchant = extractExpenseMerchant(fullText)
-            val confidence = if (merchant != null) ConfidenceLevel.HIGH else ConfidenceLevel.MEDIUM
             return Classification(
                 type = TransactionType.EXPENSE,
                 direction = TransactionDirection.OUT,
-                confidence = confidence,
+                confidence = ConfidenceLevel.HIGH,
                 merchant = merchant
             )
         }

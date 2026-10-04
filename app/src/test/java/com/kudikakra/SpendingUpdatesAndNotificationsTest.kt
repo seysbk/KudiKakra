@@ -197,6 +197,23 @@ class SpendingUpdatesAndNotificationsTest {
     }
 
     @Test
+    fun `failed notification posting is not recorded and can be retried`() {
+        val testManager = TestSpendingNotificationManager().apply { shouldPost = false }
+        val summary = BudgetEngine.calculate(
+            planMinorUnits = 10_000L,
+            spentMinorUnits = 8_500L,
+            approachingThresholdPercent = 80,
+        )
+
+        assertFalse(testManager.evaluateAndNotify(summary, spendingNotificationsEnabled = true))
+        assertEquals(0, testManager.postedNotifications.size)
+
+        testManager.shouldPost = true
+        assertTrue(testManager.evaluateAndNotify(summary, spendingNotificationsEnabled = true))
+        assertEquals(1, testManager.postedNotifications.size)
+    }
+
+    @Test
     fun `spending notification helper evaluates repository state and notifies`() = runBlocking {
         val testManager = TestSpendingNotificationManager()
         val todayDay = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
@@ -243,9 +260,11 @@ class SpendingUpdatesAndNotificationsTest {
 
     private class TestSpendingNotificationManager : SpendingNotificationManager() {
         val postedNotifications = mutableListOf<Pair<Int, String>>()
+        var shouldPost = true
 
-        override fun postNotification(notificationId: Int, title: String, text: String) {
-            postedNotifications.add(notificationId to "$title: $text")
+        override fun postNotification(notificationId: Int, title: String, text: String): Boolean {
+            if (shouldPost) postedNotifications.add(notificationId to "$title: $text")
+            return shouldPost
         }
     }
 

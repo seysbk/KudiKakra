@@ -1,13 +1,13 @@
-KudiKakra — MVP TODO
+# KudiKakra — MVP TODO
 
-Status Legend
+## Status Legend
 
 - [ ] Not started
 - [~] In progress
 - [x] Completed
 - [!] Blocked / needs investigation
 
-MVP SCOPE GUARDRAILS
+## MVP SCOPE GUARDRAILS
 
 The first success milestone is deliberately small:
 
@@ -37,7 +37,7 @@ Automatic classification rules:
 
 ---
 
-PHASE 0 — Project Setup
+## PHASE 0 — Project Setup
 
 - [ ] Create Android Studio project
 - [ ] Use Kotlin
@@ -55,7 +55,7 @@ PHASE 0 — Project Setup
 
 ---
 
-PHASE 1 — Basic UI
+## PHASE 1 — Basic UI
 
 - [x] Create basic navigation
 - [x] Create Dashboard screen
@@ -68,7 +68,7 @@ PHASE 1 — Basic UI
 
 ---
 
-PHASE 2 — Room / SQLite
+## PHASE 2 — Room / SQLite
 
 - [x] Add Room
 - [x] Create AppDatabase
@@ -85,7 +85,7 @@ PHASE 2 — Room / SQLite
 
 ---
 
-PHASE 3 — Manual Transactions
+## PHASE 3 — Manual Transactions
 
 Build manual entry before automatic detection.
 
@@ -105,7 +105,7 @@ This gives the project a working foundation before notification parsing is intro
 
 ---
 
-PHASE 4 — Spending Plan
+## PHASE 4 — Spending Plan
 
 - [x] Allow user to configure Monday budget
 - [x] Allow Tuesday budget
@@ -130,7 +130,7 @@ Remaining: GH₵12
 
 ---
 
-PHASE 5 — Notification Listener
+## PHASE 5 — Notification Listener
 
 Make-or-break technical experiment
 
@@ -161,7 +161,7 @@ Record what the phone actually exposes.
 
 ---
 
-PHASE 6 — Financial Detector
+## PHASE 6 — Financial Detector
 
 - [x] Create FinancialNotificationDetector
 - [x] Identify likely financial notifications
@@ -175,7 +175,7 @@ The detector should be conservative.
 
 ---
 
-PHASE 7 — Parser Framework
+## PHASE 7 — Parser Framework
 
 - [x] Create NotificationEvent
 - [x] Create FinancialParser interface
@@ -190,7 +190,7 @@ PHASE 7 — Parser Framework
 
 ---
 
-PHASE 8 — First Provider Parser
+## PHASE 8 — First Provider Parser
 
 Start with ONE provider.
 
@@ -214,7 +214,7 @@ Do not add five providers before the first parser works reliably.
 
 ---
 
-PHASE 9 — Transaction Classification
+## PHASE 9 — Transaction Classification
 
 - [x] Correctly identify EXPENSE
 - [x] Correctly identify INCOME
@@ -241,7 +241,7 @@ GH₵850
 
 ---
 
-PHASE 10 — Confidence + Review
+## PHASE 10 — Confidence + Review
 
 - [x] HIGH confidence auto-save
 - [x] MEDIUM confidence review/confirmation
@@ -254,7 +254,7 @@ Do not add AI yet.
 
 ---
 
-PHASE 11 — Deduplication
+## PHASE 11 — Deduplication
 
 - [x] Identify duplicate notification scenarios
 - [x] Create transaction fingerprint
@@ -265,7 +265,7 @@ PHASE 11 — Deduplication
 
 ---
 
-PHASE 12 — Automatic Spending Updates
+## PHASE 12 — Automatic Spending Updates
 
 When a valid expense is detected:
 
@@ -290,7 +290,7 @@ Dashboard
 
 ---
 
-PHASE 13 — Spending Notifications
+## PHASE 13 — Spending Notifications
 
 - [x] Create notification channel
 - [x] Create approaching-budget notification
@@ -307,7 +307,7 @@ GH₵8 remaining.
 
 ---
 
-PHASE 14 — Home-Screen Widget
+## PHASE 14 — Home-Screen Widget
 
 Use Jetpack Glance.
 
@@ -332,7 +332,7 @@ Do not add charts yet.
 
 ---
 
-PHASE 15 — Settings
+## PHASE 15 — Settings
 
 - [x] Select financial sources
 - [x] Enable/disable automatic tracking
@@ -345,7 +345,7 @@ PHASE 15 — Settings
 
 ---
 
-PHASE 16 — Privacy
+## PHASE 16 — Privacy
 
 - [x] Confirm no financial data leaves device
 - [x] Confirm no backend exists
@@ -360,7 +360,7 @@ PHASE 16 — Privacy
 
 ---
 
-PHASE 17 — Real-Device Testing
+## PHASE 17 — Real-Device Testing
 
 Test on the actual target phone.
 
@@ -403,7 +403,7 @@ Device tests
 
 ---
 
-PHASE 18 — Second Provider
+## PHASE 18 — Second Provider
 
 Only after the first provider is reliable.
 
@@ -420,7 +420,7 @@ Then consider additional providers.
 
 ---
 
-PHASE 19 — MVP Polish
+## PHASE 19 — MVP Polish
 
 - [ ] Improve dashboard
 - [ ] Improve spending-plan setup
@@ -436,7 +436,7 @@ PHASE 19 — MVP Polish
 
 ---
 
-PHASE 20 — MVP Completion Criteria
+## PHASE 20 — MVP Completion Criteria
 
 The MVP is considered "finished" when a real user can:
 
@@ -457,7 +457,7 @@ The MVP is considered "finished" when a real user can:
 
 ---
 
-FUTURE — Do Not Build During Initial MVP
+## FUTURE — Do Not Build During Initial MVP
 
 These are deliberately postponed:
 

@@ -5,8 +5,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kudikakra.data.local.database.AppDatabase
 import com.kudikakra.data.local.entity.UserPreferencesEntity
+import com.kudikakra.data.repository.DailyBudgetRepository
+import com.kudikakra.data.repository.TransactionRepository
 import com.kudikakra.data.repository.UserPreferencesRepository
 import com.kudikakra.notification.NotificationInspectorStore
+import com.kudikakra.notification.SpendingNotificationHelper
 import com.kudikakra.notification.SpendingNotificationManager
 import com.kudikakra.widget.SpendingWidgetUpdater
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +22,12 @@ import kotlinx.coroutines.withContext
 class UserPreferencesViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getInstance(application)
     private val repository = UserPreferencesRepository(db.userPreferencesDao())
+    private val notificationHelper = SpendingNotificationHelper(
+        TransactionRepository(db.transactionDao()),
+        DailyBudgetRepository(db.dailyBudgetDao()),
+        repository,
+        SpendingNotificationManager(application),
+    )
 
     val preferences = repository.observe()
         .map { it ?: UserPreferencesEntity() }
@@ -72,6 +81,7 @@ class UserPreferencesViewModel(application: Application) : AndroidViewModel(appl
     private fun save(update: UserPreferencesEntity.() -> UserPreferencesEntity) {
         viewModelScope.launch {
             repository.save(preferences.value.update().copy(updatedAtEpochMillis = System.currentTimeMillis()))
+            notificationHelper.checkAndNotify()
         }
     }
 }

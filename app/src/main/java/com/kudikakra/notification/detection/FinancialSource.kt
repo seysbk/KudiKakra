@@ -15,6 +15,7 @@
 enum class FinancialSource(
     val packageNames: List<String>,
     val displayName: String,
+    val notificationKeywords: List<String> = emptyList(),
 ) {
     MTN_MOMO(
         packageNames = listOf(
@@ -30,6 +31,15 @@ enum class FinancialSource(
             "com.gcb.retail",
         ),
         displayName = "GCB Bank",
+        notificationKeywords = listOf("gcb bank", "gcb"),
+    ),
+    TELECEL_CASH(
+        packageNames = listOf(
+            "com.telecelcash",
+            "com.telecel.cash",
+        ),
+        displayName = "Telecel Cash",
+        notificationKeywords = listOf("telecel cash", "t-cash", "tcash"),
     ),
     ;
 
@@ -40,5 +50,14 @@ enum class FinancialSource(
          */
         fun fromPackageName(packageName: String): FinancialSource? =
             entries.firstOrNull { source -> source.packageNames.contains(packageName) }
+
+        fun fromNotification(packageName: String, title: String, text: String): FinancialSource? {
+            fromPackageName(packageName)?.let { return it }
+
+            val searchableText = "$packageName $title $text".lowercase()
+            return entries.firstOrNull { source ->
+                source.notificationKeywords.any(searchableText::contains)
+            }
+        }
     }
 }

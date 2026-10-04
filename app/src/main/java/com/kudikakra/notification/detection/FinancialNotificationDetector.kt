@@ -53,8 +53,12 @@ class FinancialNotificationDetector(
             return DetectionResult.NotFinancial("Notification text is empty")
         }
 
+        if (NON_FINANCIAL_PHRASES.any(combinedText::contains)) {
+            return DetectionResult.NotFinancial("Notification is a non-transaction account update")
+        }
+
         // Layer 2 — known package lookup
-        val knownSource = FinancialSource.fromPackageName(event.packageName)
+        val knownSource = FinancialSource.fromNotification(event.packageName, event.title, event.text)
 
         // Layer 3 — source filter
         if (knownSource != null && knownSource !in enabledSources) {
@@ -117,47 +121,62 @@ class FinancialNotificationDetector(
      * many apps send non-financial notifications.
      */
     private fun mapToResult(score: Int, knownSource: FinancialSource?): DetectionResult {
-        return if (knownSource != null) {
-            // Known financial package — lower threshold required
-            val confidence = when {
-                score >= SCORE_HIGH_THRESHOLD  -> FinancialConfidence.HIGH
-                score >= SCORE_LOW_THRESHOLD   -> FinancialConfidence.MEDIUM
-                else                           -> FinancialConfidence.LOW
+        if (knownSource != null) {
+            val hasAmount = HAS_AMOUNT_PATTERN.containsMatchIn(buildSearchTextFromEvent(knownSource))
+            val hasAction = score >= SCORE_LOW_THRESHOLD || hasAmount
+            if (!hasAction) {
+                return DetectionResult.NotFinancial(
+                    "Known financial package lacks a transaction signal or amount value"
+                )
             }
-            DetectionResult.Financial(
+
+            val confidence = when {
+                score >= SCORE_HIGH_THRESHOLD -> FinancialConfidence.HIGH
+                score >= SCORE_LOW_THRESHOLD -> FinancialConfidence.MEDIUM
+                else -> FinancialConfidence.LOW
+            }
+            return DetectionResult.Financial(
                 confidence = confidence,
                 matchedSource = knownSource,
                 reason = "Known package '${knownSource.displayName}', keyword score=$score",
             )
-        } else {
-            // Unknown package — require stronger keyword evidence
-            when {
-                score >= SCORE_UNKNOWN_HIGH -> DetectionResult.Financial(
-                    confidence = FinancialConfidence.MEDIUM,
-                    matchedSource = null,
-                    reason = "Unknown package, strong keyword score=$score",
-                )
-                score >= SCORE_UNKNOWN_LOW  -> DetectionResult.Financial(
-                    confidence = FinancialConfidence.LOW,
-                    matchedSource = null,
-                    reason = "Unknown package, moderate keyword score=$score",
-                )
-                else -> DetectionResult.NotFinancial(
-                    "Insufficient financial keyword evidence (score=$score)"
-                )
-            }
+        }
+
+        when {
+            score >= SCORE_UNKNOWN_HIGH -> return DetectionResult.Financial(
+                confidence = FinancialConfidence.MEDIUM,
+                matchedSource = null,
+                reason = "Unknown package, strong keyword score=$score",
+            )
+            score >= SCORE_UNKNOWN_LOW -> return DetectionResult.Financial(
+                confidence = FinancialConfidence.LOW,
+                matchedSource = null,
+                reason = "Unknown package, moderate keyword score=$score",
+            )
+            else -> return DetectionResult.NotFinancial(
+                "Insufficient financial keyword evidence (score=$score)"
+            )
         }
     }
+
+    private fun buildSearchTextFromEvent(source: FinancialSource): String = source.displayName.lowercase()
 
     // ── Constants ─────────────────────────────────────────────────────────────
 
     private companion object {
+        val NON_FINANCIAL_PHRASES = listOf(
+            "profile details were updated",
+            "profile has been updated",
+            "profile updated",
+        )
+
         // Keyword → weight pairs.  The list is ordered: stronger signals first
         // so that sub-string matches don't accidentally double-count.
         val WEIGHTED_KEYWORDS: List<Pair<String, Int>> = listOf(
             // ── Strong (+3) ────────────────────────────────────────────────────
             "gh₵"         to 3,
             "ghs"         to 3,
+            "ghc"         to 3,
             "momo"        to 3,
             "debit"       to 3,
             "credit"      to 3,
@@ -194,5 +213,10 @@ class FinancialNotificationDetector(
         // Thresholds for unknown-package path (stricter)
         const val SCORE_UNKNOWN_HIGH   = 5
         const val SCORE_UNKNOWN_LOW    = 3
+
+        val HAS_AMOUNT_PATTERN = Regex(
+            "(?:gh₵|ghs|ghc|gh)\\s*\\d[\\d,]*(?:\\.\\d{1,2})?|\\d[\\d,]*\\s*(?:gh₵|ghs|ghc|gh)",
+            RegexOption.IGNORE_CASE,
+        )
     }
 }

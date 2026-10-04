@@ -1,6 +1,6 @@
-KudiKakra — Architecture
+# KudiKakra — Architecture
 
-1. Architecture Goal
+## 1. Architecture Goal
 
 Build a simple native Android application that automatically detects supported financial transactions, normalizes them into a common format, stores them locally, calculates daily expenditure and displays the result through the application, notifications and a home-screen widget.
 
@@ -20,7 +20,7 @@ Do not add multiple providers, widgets, spending notifications, advanced analyti
 
 ---
 
-2. Technology Stack
+## 2. Technology Stack
 
 Android
 
@@ -54,8 +54,9 @@ No network dependency for the core MVP.
 
 ---
 
-3. High-Level Architecture
+## 3. High-Level Architecture
 
+```text
                          KudiKakra
                             │
              ┌──────────────┴──────────────┐
@@ -93,11 +94,13 @@ No network dependency for the core MVP.
              ├───────────────┬─────────────┼──────────────┐
              │               │             │              │
          Dashboard      Notifications   Widget        History
+```
 
 ---
 
-4. Core Data Flow
+## 4. Core Data Flow
 
+```text
 Notification
      ↓
 NotificationListenerService
@@ -127,10 +130,11 @@ Room
 Budget Engine
      ↓
 Dashboard + Notification + Widget
+```
 
 ---
 
-5. NotificationListenerService
+## 5. NotificationListenerService
 
 The notification listener is responsible only for receiving Android notifications.
 
@@ -150,23 +154,27 @@ Do NOT put MTN/GCB parsing logic directly inside the service.
 
 Conceptually:
 
+```text
 NotificationListenerService
         ↓
 NotificationEvent
         ↓
 TransactionProcessor
+```
 
 ---
 
-6. Notification Event
+## 6. Notification Event
 
 Use a model similar to:
 
+```text
 NotificationEvent
 - packageName
 - title
 - text
 - timestamp
+```
 
 Raw notification information should be short-lived where possible.
 
@@ -176,7 +184,7 @@ Only relevant normalized transaction data should enter the database.
 
 ---
 
-7. Source Detection
+## 7. Source Detection
 
 The source detector determines whether a notification could belong to a financial service selected by the user.
 
@@ -189,6 +197,7 @@ It can use:
 
 Example:
 
+```text
 Notification
     ↓
 Package/title
@@ -196,41 +205,47 @@ Package/title
 Possible MTN?
     ↓
 MTNParser
+```
 
 Source detection should be separate from parsing.
 
 ---
 
-8. Parser Registry
+## 8. Parser Registry
 
 The parser registry prevents the application from becoming a giant "if/else" chain.
 
 Conceptually:
 
+```text
 ParserRegistry
     ├── MTNParser
     ├── GCBParser
     ├── GhanaPayParser
     ├── TelecelParser
     └── GenericFinancialParser
+```
 
 Each parser implements the same interface.
 
 Example:
 
+```kotlin
 interface FinancialParser {
     fun canHandle(event: NotificationEvent): Boolean
     fun parse(event: NotificationEvent): ParseResult
 }
+```
 
 The exact implementation can be adjusted during development.
 
 ---
 
-9. Transaction Model
+## 9. Transaction Model
 
 The normalized transaction should contain information such as:
 
+```text
 Transaction
 - id
 - source
@@ -244,18 +259,21 @@ Transaction
 - category
 - excludedFromSpending
 - createdAt
+```
 
 Possible transaction types:
 
+```text
 EXPENSE
 INCOME
 TRANSFER
 WITHDRAWAL
 UNKNOWN
+```
 
 ---
 
-10. Important Transaction Rule
+## 10. Important Transaction Rule
 
 The parser MUST distinguish between:
 
@@ -301,7 +319,7 @@ type = EXPENSE
 
 ---
 
-11. Spending Calculation
+## 11. Spending Calculation
 
 The budget engine should calculate expenditure using only transactions that qualify as spending.
 
@@ -323,7 +341,7 @@ Transfers should be excluded unless they are explicitly classified as spending.
 
 ---
 
-12. Large Cash Withdrawal Edge Case
+## 12. Large Cash Withdrawal Edge Case
 
 Example:
 
@@ -347,7 +365,7 @@ Future versions may allow the user to manually record cash spending after withdr
 
 ---
 
-13. Confidence System
+## 13. Confidence System
 
 Parsers should return a confidence level.
 
@@ -376,7 +394,7 @@ Low-confidence transactions should generally not be automatically treated as exp
 
 ---
 
-14. Duplicate Prevention
+## 14. Duplicate Prevention
 
 The same transaction must not be counted multiple times.
 
@@ -392,7 +410,7 @@ Do not assume timestamp alone is enough.
 
 ---
 
-15. Budget Engine
+## 15. Budget Engine
 
 The budget engine is responsible for:
 
@@ -415,7 +433,7 @@ The budget engine should contain business rules, not UI code.
 
 ---
 
-16. Repository Layer
+## 16. Repository Layer
 
 The UI should not directly access Room DAOs.
 
@@ -445,7 +463,7 @@ This keeps the application easier to modify.
 
 ---
 
-17. Widget Architecture
+## 17. Widget Architecture
 
 The widget reads the relevant calculated state from the local application data.
 
@@ -471,7 +489,7 @@ The widget should not contain complicated financial calculations itself.
 
 ---
 
-18. Android Notifications
+## 18. Android Notifications
 
 The notification engine should receive spending state from the budget engine.
 
@@ -495,7 +513,7 @@ Do not send repeated notifications for every transaction.
 
 ---
 
-19. Development Architecture
+## 19. Development Architecture
 
 During development, include a developer/test pathway.
 
@@ -510,7 +528,7 @@ This allows parser development without constantly making real financial transact
 
 ---
 
-20. No Backend
+## 20. No Backend
 
 Do not add:
 
@@ -527,7 +545,7 @@ The MVP is intentionally a standalone Android application.
 
 ---
 
-21. Package Structure
+## 21. Package Structure
 
 A reasonable starting structure:
 
@@ -566,7 +584,7 @@ Do not over-engineer the architecture merely to follow a textbook.
 
 ---
 
-22. Core Principle
+## 22. Core Principle
 
 Keep this separation:
 

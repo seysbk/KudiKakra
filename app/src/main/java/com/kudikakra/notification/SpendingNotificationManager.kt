@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import com.kudikakra.R
 import com.kudikakra.domain.budget.BudgetStatus
 import com.kudikakra.domain.budget.BudgetSummary
@@ -53,8 +54,10 @@ open class SpendingNotificationManager(private val context: Context? = null) {
         val todayDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
         val statusKey = summary.status.name
 
-        // Deduplication check
-        if (lastNotifiedDate == todayDate && lastNotifiedStatus == statusKey) {
+        val storedState = context?.getSharedPreferences(DEDUP_PREFERENCES, Context.MODE_PRIVATE)
+        val previousDate = storedState?.getString(KEY_LAST_DATE, lastNotifiedDate) ?: lastNotifiedDate
+        val previousStatus = storedState?.getString(KEY_LAST_STATUS, lastNotifiedStatus) ?: lastNotifiedStatus
+        if (previousDate == todayDate && previousStatus == statusKey) {
             return false
         }
 
@@ -62,26 +65,35 @@ open class SpendingNotificationManager(private val context: Context? = null) {
             BudgetStatus.APPROACHING_LIMIT -> {
                 val title = "Approaching Daily Budget"
                 val text = buildApproachingMessage(summary)
-                postNotification(NOTIFICATION_ID_APPROACHING, title, text)
-                lastNotifiedDate = todayDate
-                lastNotifiedStatus = statusKey
+                if (!postNotification(NOTIFICATION_ID_APPROACHING, title, text)) return false
+                recordNotificationState(todayDate, statusKey)
                 true
             }
             BudgetStatus.EXCEEDED -> {
                 val title = "Daily Budget Exceeded"
                 val text = buildExceededMessage(summary)
-                postNotification(NOTIFICATION_ID_EXCEEDED, title, text)
-                lastNotifiedDate = todayDate
-                lastNotifiedStatus = statusKey
+                if (!postNotification(NOTIFICATION_ID_EXCEEDED, title, text)) return false
+                recordNotificationState(todayDate, statusKey)
                 true
             }
             else -> false
         }
     }
 
-    protected open fun postNotification(notificationId: Int, title: String, text: String) {
-        val ctx = context ?: return
-        val nm = notificationManager ?: return
+    private fun recordNotificationState(date: String, status: String) {
+        lastNotifiedDate = date
+        lastNotifiedStatus = status
+        context?.getSharedPreferences(DEDUP_PREFERENCES, Context.MODE_PRIVATE)
+            ?.edit()
+            ?.putString(KEY_LAST_DATE, date)
+            ?.putString(KEY_LAST_STATUS, status)
+            ?.apply()
+    }
+
+    protected open fun postNotification(notificationId: Int, title: String, text: String): Boolean {
+        val ctx = context ?: return false
+        val nm = notificationManager ?: return false
+        if (!NotificationManagerCompat.from(ctx).areNotificationsEnabled()) return false
         val builder = NotificationCompat.Builder(ctx, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
@@ -90,7 +102,10 @@ open class SpendingNotificationManager(private val context: Context? = null) {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
 
-        nm.notify(notificationId, builder.build())
+        return runCatching {
+            nm.notify(notificationId, builder.build())
+            true
+        }.getOrDefault(false)
     }
 
     private fun buildApproachingMessage(summary: BudgetSummary): String {
@@ -118,6 +133,9 @@ open class SpendingNotificationManager(private val context: Context? = null) {
 
         const val NOTIFICATION_ID_APPROACHING = 1001
         const val NOTIFICATION_ID_EXCEEDED = 1002
+        private const val DEDUP_PREFERENCES = "spending_notification_state"
+        private const val KEY_LAST_DATE = "last_date"
+        private const val KEY_LAST_STATUS = "last_status"
 
         // Memory-cached last notification date and status for duplicate prevention
         var lastNotifiedDate: String? = null
