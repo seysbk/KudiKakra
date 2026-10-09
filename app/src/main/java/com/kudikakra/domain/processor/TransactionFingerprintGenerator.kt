@@ -7,7 +7,7 @@ import java.util.Locale
 
 object TransactionFingerprintGenerator {
 
-    private const val FIVE_MINUTES_MILLIS = 5 * 60 * 1000L
+    private const val ONE_MINUTE_MILLIS = 60 * 1000L
 
     fun generate(transaction: NormalizedTransaction): String {
         return generate(
@@ -47,7 +47,7 @@ object TransactionFingerprintGenerator {
         val rawInput = if (normRef.isNotBlank()) {
             "ref:$normSource:$normType:$amountMinorUnits:$normRef"
         } else {
-            val timeBucket = timestampEpochMillis / FIVE_MINUTES_MILLIS
+            val timeBucket = timestampEpochMillis / ONE_MINUTE_MILLIS
             "bucket:$normSource:$normType:$amountMinorUnits:$normMerchant:$timeBucket"
         }
 

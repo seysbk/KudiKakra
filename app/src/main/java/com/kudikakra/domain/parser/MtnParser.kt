@@ -173,7 +173,9 @@ class MtnParser : FinancialParser {
             lowerText.contains("cash-out") ||
             lowerText.contains("cashout") ||
             lowerText.contains("withdrawn") ||
-            (lowerText.contains("withdrawal") && !lowerText.contains("failed"))
+            (lowerText.contains("withdrawal") && !lowerText.contains("failed")) ||
+            lowerText.contains("cash out of") ||
+            lowerText.contains("withdrew")
     }
 
     private fun isIncomePattern(lowerText: String): Boolean {
@@ -182,7 +184,9 @@ class MtnParser : FinancialParser {
             lowerText.contains("you have received") ||
             lowerText.contains("payment received") ||
             lowerText.contains("credited with") ||
-            lowerText.contains("deposit from")
+            lowerText.contains("credit alert") ||
+            lowerText.contains("deposit from") ||
+            lowerText.contains("received gh")
     }
 
     private fun isExpensePattern(lowerText: String): Boolean {
@@ -190,18 +194,28 @@ class MtnParser : FinancialParser {
             lowerText.contains("you have paid") ||
             lowerText.contains("paid gh") ||
             lowerText.contains("payment of gh") ||
+            lowerText.contains("payment of") ||
+            lowerText.contains("payment for") ||
             lowerText.contains("payment to") ||
             lowerText.contains("paid to") ||
+            lowerText.contains("paid for") ||
             lowerText.contains("purchase of") ||
             lowerText.contains("bought airtime") ||
-            lowerText.contains("data bundle")
+            lowerText.contains("airtime purchase") ||
+            lowerText.contains("data bundle") ||
+            lowerText.contains("bundle purchase") ||
+            lowerText.contains("successful payment") ||
+            lowerText.contains("payment successful")
     }
 
     private fun isTransferPattern(lowerText: String): Boolean {
         return lowerText.contains("transferred") ||
             lowerText.contains("transfer to") ||
             lowerText.contains("sent to") ||
-            lowerText.contains("you have sent")
+            lowerText.contains("you have sent") ||
+            lowerText.contains("your transfer of") ||
+            lowerText.contains("transfer of") ||
+            lowerText.contains("sent gh")
     }
 
     private fun extractAmountMinorUnits(text: String): Long? {
@@ -297,12 +311,12 @@ class MtnParser : FinancialParser {
         )
 
         private val AMOUNT_REGEX = Regex(
-            """(?:GH₵|GHS|GHC|GH)\s*([\d,]+(?:\.\d{1,2})?)|([\d,]+(?:\.\d{1,2})?)\s*(?:GH₵|GHS|GHC|GHS)""",
+            """(?:GH₵|GHS|GHC|GHS|GHs|GH)\s*([\d,]+(?:\.\d{1,2})?)|([\d,]+(?:\.\d{1,2})?)\s*(?:GH₵|GHS|GHC|GHS|GHs|GH)""",
             RegexOption.IGNORE_CASE
         )
 
         private val TXN_ID_REGEX = Regex(
-            """(?:Transaction\s*ID|Txn\s*ID|Trans\s*ID):\s*([\w-]+)""",
+            """(?:Transaction\s*ID|Txn\s*ID|Trans\s*ID|Financial\s*Transaction\s*Id):\s*([\w-]+)""",
             RegexOption.IGNORE_CASE
         )
 
