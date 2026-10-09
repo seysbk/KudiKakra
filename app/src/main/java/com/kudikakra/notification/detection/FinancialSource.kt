@@ -24,6 +24,7 @@ enum class FinancialSource(
             "com.mtn.mtnmomo",
         ),
         displayName = "MTN MoMo",
+        notificationKeywords = listOf("momo", "mobilemoney", "mobile money", "mtn momo", "mtn mobile money", "mtn"),
     ),
     GCB(
         packageNames = listOf(

@@ -14,10 +14,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
@@ -430,13 +434,69 @@ private fun budgetStatusLabel(status: BudgetStatus): String = when (status) {
     BudgetStatus.EXCEEDED -> "Today's plan has been exceeded."
 }
 
+private data class TransactionDayGroup(
+    val date: LocalDate,
+    val headerTitle: String,
+    val dailySpentMinorUnits: Long,
+    val transactions: List<TransactionEntity>
+)
+
+private fun groupTransactionsByDay(transactions: List<TransactionEntity>): List<TransactionDayGroup> {
+    val zoneId = ZoneId.systemDefault()
+    val today = LocalDate.now(zoneId)
+    val yesterday = today.minusDays(1)
+
+    return transactions
+        .groupBy {
+            Instant.ofEpochMilli(it.timestampEpochMillis)
+                .atZone(zoneId)
+                .toLocalDate()
+        }
+        .entries
+        .sortedByDescending { it.key }
+        .map { (date, dayTxns) ->
+            val title = when (date) {
+                today -> "Today · ${date.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault()))}"
+                yesterday -> "Yesterday · ${date.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault()))}"
+                else -> date.format(DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy", Locale.getDefault()))
+            }
+            val dailySpent = dayTxns
+                .filter { it.type == com.kudikakra.domain.model.TransactionType.EXPENSE && !it.excludedFromSpending }
+                .sumOf { it.amountMinorUnits }
+
+            TransactionDayGroup(
+                date = date,
+                headerTitle = title,
+                dailySpentMinorUnits = dailySpent,
+                transactions = dayTxns.sortedByDescending { it.timestampEpochMillis }
+            )
+        }
+}
+
 @Composable
 private fun TransactionsScreen(viewModel: TransactionViewModel?) {
-    val transactions by viewModel?.transactions?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList()) }
+    val rawTransactions by viewModel?.transactions?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList()) }
     val pendingTransactions by viewModel?.pendingReviewTransactions?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList()) }
+    var selectedTypeFilter by remember { mutableStateOf<com.kudikakra.domain.model.TransactionType?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var editingTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
     var transactionToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
+
+    val filteredTransactions = remember(rawTransactions, selectedTypeFilter) {
+        if (selectedTypeFilter == null) rawTransactions
+        else rawTransactions.filter { it.type == selectedTypeFilter }
+    }
+
+    val dayGroups = remember(filteredTransactions) {
+        groupTransactionsByDay(filteredTransactions)
+    }
+
+    val totalExpensesSum = remember(rawTransactions) {
+        rawTransactions.filter { it.type == com.kudikakra.domain.model.TransactionType.EXPENSE && !it.excludedFromSpending }.sumOf { it.amountMinorUnits }
+    }
+    val totalIncomeSum = remember(rawTransactions) {
+        rawTransactions.filter { it.type == com.kudikakra.domain.model.TransactionType.INCOME }.sumOf { it.amountMinorUnits }
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -446,16 +506,78 @@ private fun TransactionsScreen(viewModel: TransactionViewModel?) {
         }
     ) { innerPadding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(innerPadding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+            modifier = Modifier.fillMaxSize().padding(innerPadding).imePadding(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                start = 20.dp,
+                top = 20.dp,
+                end = 20.dp,
+                bottom = 80.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Summary Card
             item {
-                Text(
-                    "Transactions will be stored locally on this device.",
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                Card {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Transaction History Summary", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("Total Spent", style = MaterialTheme.typography.bodySmall)
+                                Text(formatMoney(totalExpensesSum), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                            }
+                            Column {
+                                Text("Total Income", style = MaterialTheme.typography.bodySmall)
+                                Text(formatMoney(totalIncomeSum), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            }
+                            Column {
+                                Text("Recorded", style = MaterialTheme.typography.bodySmall)
+                                Text("${rawTransactions.size} item(s)", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
             }
+
+            // Filter Chips
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val filters = listOf(
+                        null to "All",
+                        com.kudikakra.domain.model.TransactionType.EXPENSE to "Expenses",
+                        com.kudikakra.domain.model.TransactionType.INCOME to "Income",
+                        com.kudikakra.domain.model.TransactionType.TRANSFER to "Transfers",
+                        com.kudikakra.domain.model.TransactionType.WITHDRAWAL to "Withdrawals"
+                    )
+                    filters.forEach { (type, label) ->
+                        val isSelected = selectedTypeFilter == type
+                        if (isSelected) {
+                            Button(
+                                onClick = { selectedTypeFilter = type },
+                                modifier = Modifier.height(36.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Text(label, style = MaterialTheme.typography.bodySmall)
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = { selectedTypeFilter = type },
+                                modifier = Modifier.height(36.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Text(label, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Pending Review Section
             if (pendingTransactions.isNotEmpty()) {
                 item {
                     Text(
@@ -508,59 +630,51 @@ private fun TransactionsScreen(viewModel: TransactionViewModel?) {
                         }
                     }
                 }
-                item {
-                    Text(
-                        "All Transactions",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
             }
-            if (transactions.isEmpty()) {
+
+            if (filteredTransactions.isEmpty()) {
                 item {
                     Card {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("No transactions yet", fontWeight = FontWeight.SemiBold)
+                            Text("No transactions found", fontWeight = FontWeight.SemiBold)
                             Spacer(modifier = Modifier.height(6.dp))
-                            Text("Click the + button to add a manual transaction.")
+                            Text("Click the + button to add a manual transaction or change filter.")
                         }
                     }
                 }
             } else {
-                items(transactions) { t ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                dayGroups.forEach { group ->
+                    item {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.medium
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                val dateStr = Instant.ofEpochMilli(t.timestampEpochMillis)
-                                    .atZone(ZoneId.systemDefault())
-                                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm", Locale.getDefault()))
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Text(
-                                    text = "${t.type.name} - ${t.source}",
-                                    fontWeight = FontWeight.Bold
+                                    text = group.headerTitle,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleSmall
                                 )
                                 Text(
-                                    text = t.merchant ?: dateStr,
-                                    style = MaterialTheme.typography.bodyMedium
+                                    text = "${formatMoney(group.dailySpentMinorUnits)} spent",
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
-                            }
-                            Text(
-                                text = formatMoney(t.amountMinorUnits),
-                                fontWeight = FontWeight.Bold,
-                                color = if (t.type.name == "EXPENSE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                            )
-                            Row {
-                                IconButton(onClick = { editingTransaction = t }) {
-                                    Icon(Icons.Default.Edit, contentDescription = "Edit")
-                                }
-                                IconButton(onClick = { transactionToDelete = t }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-                                }
                             }
                         }
+                    }
+                    items(group.transactions) { t ->
+                        TransactionItemCard(
+                            transaction = t,
+                            onEdit = { editingTransaction = t },
+                            onDelete = { transactionToDelete = t }
+                        )
                     }
                 }
             }
@@ -607,6 +721,76 @@ private fun TransactionsScreen(viewModel: TransactionViewModel?) {
     }
 }
 
+@Composable
+private fun TransactionItemCard(
+    transaction: TransactionEntity,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val timeStr = Instant.ofEpochMilli(transaction.timestampEpochMillis)
+        .atZone(ZoneId.systemDefault())
+        .format(DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()))
+
+    val isExpense = transaction.type == com.kudikakra.domain.model.TransactionType.EXPENSE
+    val isIncome = transaction.type == com.kudikakra.domain.model.TransactionType.INCOME
+
+    val amountPrefix = when {
+        isExpense -> "-"
+        isIncome -> "+"
+        else -> ""
+    }
+    val amountColor = when {
+        isExpense -> MaterialTheme.colorScheme.error
+        isIncome -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = transaction.merchant ?: transaction.type.name,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "${transaction.source} • ${transaction.type.name} • $timeStr",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                transaction.reference?.let { ref ->
+                    Text(
+                        text = "Ref: $ref",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "$amountPrefix${formatMoney(transaction.amountMinorUnits)}",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = amountColor
+                )
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit")
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private fun formatMoney(amountMinorUnits: Long): String =
     "GH₵${String.format(Locale.US, "%,.2f", amountMinorUnits / 100.0)}"
 
@@ -650,8 +834,15 @@ private fun SpendingPlanScreen(viewModel: SpendingPlanViewModel?) {
     )
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 20.dp,
+            top = 20.dp,
+            end = 20.dp,
+            bottom = 100.dp
+        ),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
@@ -702,6 +893,10 @@ private fun BudgetEditorRow(
                     error = null
                 },
                 label = { Text("Daily plan (GH₵)") },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal,
+                    imeAction = ImeAction.Done
+                ),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )

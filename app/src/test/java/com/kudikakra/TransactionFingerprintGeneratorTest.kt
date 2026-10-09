@@ -73,7 +73,7 @@ class TransactionFingerprintGeneratorTest {
     }
 
     @Test
-    fun `repeated notification without reference within 5 minutes produces identical fingerprint`() {
+    fun `repeated notification without reference within 1 minute produces identical fingerprint`() {
         val baseTime = 1700000000000L
         val txn1 = NormalizedTransaction(
             source = "MTN MoMo",
@@ -93,7 +93,7 @@ class TransactionFingerprintGeneratorTest {
             direction = TransactionDirection.OUT,
             merchant = "Taxi Driver",
             reference = null,
-            timestampEpochMillis = baseTime + 30000L, // 30s later
+            timestampEpochMillis = baseTime + 10000L, // 10s later in same minute
             confidence = ConfidenceLevel.MEDIUM
         )
 
@@ -101,6 +101,37 @@ class TransactionFingerprintGeneratorTest {
         val fp2 = TransactionFingerprintGenerator.generate(txn2)
 
         assertEquals("Repeated notification without reference within time bucket must produce identical fingerprint", fp1, fp2)
+    }
+
+    @Test
+    fun `successive transactions 2 minutes apart without reference produce different fingerprints`() {
+        val baseTime = 1700000000000L
+        val txn1 = NormalizedTransaction(
+            source = "MTN MoMo",
+            amountMinorUnits = 1500L,
+            type = TransactionType.EXPENSE,
+            direction = TransactionDirection.OUT,
+            merchant = "Taxi Driver",
+            reference = null,
+            timestampEpochMillis = baseTime,
+            confidence = ConfidenceLevel.MEDIUM
+        )
+
+        val txn2 = NormalizedTransaction(
+            source = "MTN MoMo",
+            amountMinorUnits = 1500L,
+            type = TransactionType.EXPENSE,
+            direction = TransactionDirection.OUT,
+            merchant = "Taxi Driver",
+            reference = null,
+            timestampEpochMillis = baseTime + (120 * 1000L), // 2 mins later
+            confidence = ConfidenceLevel.MEDIUM
+        )
+
+        val fp1 = TransactionFingerprintGenerator.generate(txn1)
+        val fp2 = TransactionFingerprintGenerator.generate(txn2)
+
+        assertNotEquals("Successive transactions in different minutes must produce distinct fingerprints", fp1, fp2)
     }
 
     @Test

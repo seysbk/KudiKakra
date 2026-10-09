@@ -71,7 +71,7 @@ class FinancialNotificationDetector(
         val score = scoreKeywords(combinedText)
 
         // Layer 5 — confidence mapping
-        return mapToResult(score = score, knownSource = knownSource)
+        return mapToResult(score = score, knownSource = knownSource, combinedText = combinedText)
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────────
@@ -120,9 +120,9 @@ class FinancialNotificationDetector(
      * A known package alone (score = 0) still warrants LOW confidence because
      * many apps send non-financial notifications.
      */
-    private fun mapToResult(score: Int, knownSource: FinancialSource?): DetectionResult {
+    private fun mapToResult(score: Int, knownSource: FinancialSource?, combinedText: String): DetectionResult {
         if (knownSource != null) {
-            val hasAmount = HAS_AMOUNT_PATTERN.containsMatchIn(buildSearchTextFromEvent(knownSource))
+            val hasAmount = HAS_AMOUNT_PATTERN.containsMatchIn(combinedText)
             val hasAction = score >= SCORE_LOW_THRESHOLD || hasAmount
             if (!hasAction) {
                 return DetectionResult.NotFinancial(
@@ -158,8 +158,6 @@ class FinancialNotificationDetector(
             )
         }
     }
-
-    private fun buildSearchTextFromEvent(source: FinancialSource): String = source.displayName.lowercase()
 
     // ── Constants ─────────────────────────────────────────────────────────────
 

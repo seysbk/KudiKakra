@@ -7,6 +7,9 @@ import androidx.compose.ui.unit.dp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.Image
+import androidx.glance.ImageProvider
+import androidx.glance.ColorFilter
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
@@ -30,6 +33,7 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import com.kudikakra.R
 import com.kudikakra.MainActivity
 import com.kudikakra.data.local.database.AppDatabase
 import com.kudikakra.domain.budget.BudgetEngine
@@ -118,17 +122,21 @@ fun SpendingWidgetContent(
         ) {
             Text(
                 text = "Today · $dayLabel",
-                modifier = GlanceModifier.clickable(actionStartActivity<MainActivity>()),
+                modifier = GlanceModifier.defaultWeight().clickable(actionStartActivity<MainActivity>()),
                 style = TextStyle(
                     color = GlanceTheme.colors.onPrimaryContainer,
                     fontWeight = FontWeight.Bold
                 )
             )
             Spacer(modifier = GlanceModifier.width(4.dp))
-            Text(
-                text = "Refresh",
-                modifier = GlanceModifier.clickable(actionRunCallback<RefreshSpendingWidgetAction>()),
-                style = TextStyle(color = GlanceTheme.colors.primary)
+            Image(
+                provider = ImageProvider(R.drawable.ic_refresh),
+                contentDescription = "Refresh",
+                colorFilter = ColorFilter.tint(GlanceTheme.colors.primary),
+                modifier = GlanceModifier
+                    .width(18.dp)
+                    .height(18.dp)
+                    .clickable(actionRunCallback<RefreshSpendingWidgetAction>())
             )
         }
 
@@ -144,20 +152,26 @@ fun SpendingWidgetContent(
 
         Spacer(modifier = GlanceModifier.height(4.dp))
 
-        Box(
+        Row(
             modifier = GlanceModifier
                 .fillMaxWidth()
                 .height(8.dp)
-                .cornerRadius(5.dp)
-                .background(GlanceTheme.colors.surfaceVariant)
+                .cornerRadius(4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = GlanceModifier
-                    .width((progress * 1.2f).dp)
-                    .height(8.dp)
-                    .cornerRadius(5.dp)
-                    .background(GlanceTheme.colors.primary)
-            ) {}
+            val totalSegments = 20
+            val activeSegments = (progress * totalSegments / 100).coerceIn(0, totalSegments)
+            for (i in 1..totalSegments) {
+                Box(
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .height(8.dp)
+                        .background(
+                            if (i <= activeSegments) GlanceTheme.colors.primary
+                            else GlanceTheme.colors.surfaceVariant
+                        )
+                ) {}
+            }
         }
 
         Spacer(modifier = GlanceModifier.height(4.dp))
